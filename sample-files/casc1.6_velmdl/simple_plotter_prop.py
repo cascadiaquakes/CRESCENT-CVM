@@ -1,0 +1,14 @@
+filename = "casc1.6-velmdl.r0.1.nc"
+depth = 9000
+variable = "vp"
+vmin = 2000
+vmax = 8000
+figure_size = (6, 10)
+figure_size_s = (4, 4)
+cmap = "jet"
+x = "easting"
+y = "northing"
+auxiliary_x = "longitude"
+auxiliary_y = "latitude"
+x_min = 200000
+y_min = 5000000

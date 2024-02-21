@@ -1,0 +1,511 @@
+#!/usr/bin/env python
+
+import sys
+import os
+import getopt
+import xarray as xr
+import numpy as np
+import matplotlib.pyplot as plt
+
+
+"""Extract data from a CVM netCDF file. Allow user to inspect the metadata, slice the data, plot, and 
+    save the sliced data. Currently slicing is only performed along the existing coordinate planes.
+
+    Call arguments:
+        -h, --help: this message.
+        -i, --input: [required] the input nefiletCDF filename.
+"""
+
+script = os.path.basename(sys.argv[0])
+# Get the directory paths.
+ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+
+PROP_DIR = os.path.join(ROOT_DIR, "prop")
+sys.path.append(PROP_DIR)
+import shared_prop as prop
+import netcdf_to_geocsv_prop as convert_prop
+
+LIB_DIR = os.path.join(ROOT_DIR, prop.LIB_DIR)
+sys.path.append(LIB_DIR)
+import shared_lib as lib
+import netcdf_to_geocsv_lib as convert_lib
+import slicer_lib as slicer_lib
+
+
+# Set up the logger.
+logger = lib.get_logger()
+line_break = "\n"
+
+
+def usage():
+    logger.info(
+        f"""
+    Extract data from a CVM netCDF file. Interactively, user can inspect the metadata, slice the data, plot, and 
+    save the sliced data. Currently slicing is only performed along the existing coordinate planes.
+
+    Call arguments:
+        -h, --help: this message.
+        -i, --input: [required] the input nefiletCDF filename.
+"""
+    )
+
+
+def main():
+    # Capture the input parameters.
+    try:
+        argv = sys.argv[1:]
+        opts, args = getopt.getopt(
+            argv, "hmi:o:", ["help", "meta", "input=", "output="]
+        )
+    except getopt.GetoptError as err:
+        # Print the error, and help information and exit:
+        logger.error(err)
+        usage()
+        sys.exit(2)
+    # Initialize the variables.
+    input_file = None
+    output_file = None
+    meta = None
+    for o, a in opts:
+        if o in ("-h", "--help"):
+            usage()
+            sys.exit()
+        elif o in ("-m", "--meta"):
+            meta = True
+        elif o in ("-i", "--input"):
+            input_file = a
+            if not os.path.isfile(input_file):
+                logger.error(
+                    f"[ERR] Invalid input netCDF file: [{input_file}]. File not found!"
+                )
+                sys.exit(2)
+        elif o in ("-o", "--output"):
+            output_file = a.strip()
+        else:
+            assert False, "unhandled option"
+
+    # The input filename is required.
+    if input_file is None:
+        usage()
+        logger.error("[ERR] missing -i or --input.")
+        sys.exit(1)
+
+    logger.info(f"[INFO] Working on input {input_file}")
+    # Set the output filename the same as the input file.
+    if output_file is None:
+        output_file = f"{os.path.splitext(input_file)[0]}{prop.extension['geocsv']}"
+    logger.info(f"[INFO] Will write the output to {output_file}")
+
+    # Figure out the input's file type.
+    file_type = lib.check_file_type(input_file)
+
+    option = "start"
+    coordinate_values = dict()
+
+    # Convert netCDF to GeoCSV.
+    logger.info("\n")
+    if file_type["engine"] == "netcdf" and file_type["valid"] == True:
+        logger.info(f"[INFO] {input_file} is a netCDF file")
+        with xr.open_dataset(input_file, engine="netcdf4") as ds:
+            data_var = list(ds.data_vars)
+            dimensions = list(ds.dims)
+            main_coordinates = list()
+            aux_coordinates = list()
+            coordinates = list(ds.coords)
+            for var in coordinates:
+                coordinate_values[var] = list(ds[var].data)
+
+            for var in coordinates:
+                if var in dimensions:
+                    main_coordinates.append(var)
+                else:
+                    aux_coordinates.append(var)
+
+            while option != "exit":
+                option = input("[meta, range, subset, help, exit]? ")
+
+                # Done, back!
+                if (
+                    option.strip() == "exit"
+                    or option.strip() == "back"
+                    or not option.strip()
+                ):
+                    sys.exit()
+
+                # Need help.
+                elif option == "help":
+                    usage()
+
+                # Variables value ranges.
+                elif option == "range":
+                    logger.info("\nRange:")
+                    for var in ds.variables:
+                        logger.info(
+                            f"\t{var}: {np.nanmin(ds[var].data):0.2f} to  {np.nanmax(ds[var].data):0.2f} {ds[var].attrs['units']}"
+                        )
+
+                # Display the metadata.
+                elif option == "meta":
+                    logger.info(f"\n[Metadata] Global attributes:\n")
+                    for row in ds.attrs:
+                        if "geospatial" in row:
+                            logger.info(f"\t{row}: {ds.attrs[row]}")
+
+                    logger.info(f"\n[Metadata] Coordinate Variables:")
+                    indent = 14
+                    for var in dimensions:
+                        for attr_indx, attr in enumerate(ds[var].attrs):
+                            if attr_indx == 0:
+                                logger.info(f"\t{var}: ")
+                            if attr == "variable":
+                                ConnectionRefusedError
+                            else:
+                                logger.info(
+                                    f"{indent*' '}{attr}: {ds[var].attrs[attr]}"
+                                )
+                        logger.info(f"{indent*' '}Values:")
+                        lib.view_list(ds[var].data, indent=indent)
+                # Subset the model.
+                elif option == "subset":
+                    subset_type = "volume"
+                    # Actions.
+                    while subset_type != "back":
+                        subset_type = input(
+                            f"\nSubset type [volume, slice, back, exit]? "
+                        )
+                        # Done, back!
+                        if subset_type.strip() == "exit":
+                            sys.exit()
+                        elif subset_type.strip() == "back" or not option.strip():
+                            break
+                        if subset_type == "volume":
+                            # Get the volume limits.
+                            subset = ds.copy()
+                            subset_limits = dict()
+                            for dim in subset.dims:
+                                subset_limits[dim] = (
+                                    np.nanmin(subset[dim].data),
+                                    np.nanmax(subset[dim].data),
+                                )
+                                _limits = input(
+                                    f"\n{dim} limits [default values { subset_limits[dim]}, back, exit]? "
+                                )
+
+                                # Done, back!
+                                if _limits.strip() == "exit":
+                                    sys.exit()
+                                elif _limits.strip() == "back":
+                                    break
+                                elif _limits and "," not in _limits:
+                                    logger.warning(
+                                        f"[WARN] Invalid limits, using the full range of {subset_limits[dim]}."
+                                    )
+                                    _limits = ""
+                                if _limits:
+                                    values = _limits.split(",")
+                                    subset_limits[dim] = (
+                                        float(values[0]),
+                                        float(values[1]),
+                                    )
+                            subset_volume = slicer_lib.subsetter(ds, subset_limits)
+                            # Subset the data.
+                            logger.info(f"[INFO] The subset volume: {subset_volume}")
+                            subset_action = "continue"
+                            # Actions.
+                            while subset_action != "back":
+                                subset_action = input(f"\nAction [save, back, exit]? ")
+                                # Done, back!
+                                if subset_action.strip() == "exit":
+                                    sys.exit()
+                                elif (
+                                    subset_action.strip() == "back"
+                                    or not option.strip()
+                                ):
+                                    break
+                                # Save the subset data.
+                                elif subset_action == "save":
+                                    filename = input(
+                                        f"Output filename? Use '.csv' to save as GeoCSV, or '.nc' to output as netCDF [back, exit]: "
+                                    )
+                                    if filename.endswith("csv"):
+                                        meta = lib.get_geocsv_metadata(subset_volume)
+                                        with open(filename, "w") as fp:
+                                            fp.write(meta)
+                                        subset_volume.to_dataframe().to_csv(
+                                            filename, mode="a"
+                                        )
+                                    elif filename.endswith(".nc"):
+                                        subset_volume.to_netcdf(filename, mode="w")
+                                    else:
+                                        logger.error(
+                                            f"[ERR] invalid file type: {filename}"
+                                        )
+
+                        elif subset_type == "slice":
+                            # Slice the model.
+                            slice_dir = "depth"
+                            while slice_dir:
+                                slice_dir = input(
+                                    f"\nSlice direction [{', '.join(main_coordinates+['back', 'exit'])}]? "
+                                )
+                                # Done, back!
+                                if slice_dir.strip() == "exit":
+                                    sys.exit()
+                                elif (
+                                    slice_dir.strip() == "back"
+                                    or slice_dir not in main_coordinates
+                                    or not slice_dir.strip()
+                                ):
+                                    logger.error(f"[ERR] invalid variable {slice_dir}")
+                                    break
+                                # Explore what to do with the slice?
+                                else:
+                                    slice_value = input(
+                                        f"\nslice {slice_dir} [{np.nanmin(ds[slice_dir].data)} to {np.nanmax(ds[slice_dir].data)}, back, exit]? "
+                                    )
+                                    # Exit.
+                                    if slice_value.strip() == "exit":
+                                        sys.exit()
+                                    # A step back.
+                                    elif (
+                                        slice_value.strip() == "back"
+                                        or not slice_value.strip()
+                                    ):
+                                        break
+                                    # Actions.
+                                    # while slice_value:
+                                    closest_slice_value = lib.closest(
+                                        coordinate_values[slice_dir],
+                                        float(slice_value),
+                                    )
+                                    logger.info(
+                                        f"[INFO] Slicing at the closest {slice_dir} of {closest_slice_value}"
+                                    )
+                                    slice_dims = main_coordinates.copy()
+                                    slice_dims.remove(slice_dir)
+                                    slice_limits = dict()
+                                    gmap_limits = dict()
+                                    gmap_option = ""
+                                    # Geographic coordinates?
+                                    if (
+                                        "latitude" in coordinates
+                                        and "longitude" in coordinates
+                                    ):
+                                        # Make sure the geographical coordinates are independent of the slice direction.
+                                        if (
+                                            slice_dir not in ds["latitude"].dims
+                                            and slice_dir not in ds["longitude"].dims
+                                        ):
+                                            gmap_option = ", gmap"
+                                            for dim in ["longitude", "latitude"]:
+                                                gmap_limits[dim] = (
+                                                    np.nanmin(ds[dim].data),
+                                                    np.nanmax(ds[dim].data),
+                                                )
+                                    # Get the slice limits.
+                                    for dim in slice_dims:
+                                        slice_limits[dim] = (
+                                            np.nanmin(ds[dim].data),
+                                            np.nanmax(ds[dim].data),
+                                        )
+                                        _limits = input(
+                                            f"\n{dim} limits [default values { slice_limits[dim]}, back, exit]: "
+                                        )
+
+                                        # Done, back!
+                                        if _limits.strip() == "exit":
+                                            sys.exit()
+                                        elif _limits.strip() == "back":
+                                            break
+                                        elif _limits.strip() and "," not in _limits:
+                                            logger.warning(
+                                                f"[WARN] Invalid limits, using the full range of {slice_limits[dim]}."
+                                            )
+                                            _limits = ""
+
+                                        if _limits:
+                                            values = _limits.split(",")
+                                            slice_limits[dim] = (
+                                                float(values[0]),
+                                                float(values[1]),
+                                            )
+                                    # Slice the data.
+                                    sliced_data = slicer_lib.slicer(
+                                        ds,
+                                        slice_dir,
+                                        closest_slice_value,
+                                        slice_limits,
+                                    )
+                                    logger.info(
+                                        f"[INFO] The sliced data: {sliced_data}"
+                                    )
+                                    slice_action = "continue"
+                                    cmap = "jet_r"
+                                    # Actions.
+                                    while slice_action != "back":
+                                        slice_action = input(
+                                            f"\nAction [plot2d, plot3d{gmap_option}, cmap, save, back, exit]: "
+                                        )
+                                        # Done, back!
+                                        if slice_action.strip() == "exit":
+                                            sys.exit()
+                                        elif (
+                                            slice_action.strip() == "back"
+                                            or not option.strip()
+                                        ):
+                                            break
+                                        # 2D plot.
+                                        if slice_action == "plot2d":
+                                            # Plot each model variable.
+                                            plot_var = data_var[0]
+                                            while plot_var:
+                                                if len(data_var) > 1:
+                                                    plot_var = input(
+                                                        f"\nVariable to plot {data_var}, back, exit]: "
+                                                    )
+                                                # Done, back!
+                                                if plot_var.strip() == "exit":
+                                                    sys.exit()
+                                                elif (
+                                                    plot_var.strip() == "back"
+                                                    or not option.strip()
+                                                ):
+                                                    break
+                                                elif plot_var not in data_var:
+                                                    logger.error(
+                                                        f"[ERR] Invalid input {plot_var}"
+                                                    )
+                                                    continue
+                                                plot_data = sliced_data[plot_var].copy()
+                                                # Set the depth axis (if exists) direction.
+                                                if "depth" in plot_data.dims:
+                                                    if (
+                                                        "geospatial_vertical_positive"
+                                                        in sliced_data.attrs
+                                                    ):
+                                                        if (
+                                                            sliced_data.attrs[
+                                                                "geospatial_vertical_positive"
+                                                            ]
+                                                            == "down"
+                                                        ):
+                                                            plot_data["depth"] = (
+                                                                -plot_data["depth"]
+                                                            )
+
+                                                plot_data.plot(cmap=cmap)
+                                                plt.show()
+                                                if len(data_var) <= 1:
+                                                    plot_var = "back"
+                                        # 3D plot.
+                                        elif slice_action == "plot3d":
+                                            plot_var = data_var[0]
+                                            while plot_var:
+                                                if len(data_var) > 1:
+                                                    plot_var = input(
+                                                        f"\nVariable to plot {data_var}, back, exit]: "
+                                                    )
+                                                # Done, back!
+                                                if plot_var.strip() == "exit":
+                                                    sys.exit()
+                                                elif (
+                                                    plot_var.strip() == "back"
+                                                    or not option.strip()
+                                                ):
+                                                    break
+                                                elif plot_var not in data_var:
+                                                    logger.error(
+                                                        f"[ERR] Invalid input {plot_var}"
+                                                    )
+                                                    continue
+
+                                                sliced_data[plot_var].plot.surface(
+                                                    cmap=cmap,
+                                                )
+                                                plt.show()
+                                                if len(data_var) <= 1:
+                                                    plot_var = "back"
+                                        # Geographic map.
+                                        elif slice_action == "gmap" and gmap_option:
+                                            plot_var = data_var[0]
+                                            while plot_var:
+                                                if len(data_var) > 1:
+                                                    plot_var = input(
+                                                        f"\nVariable to plot {data_var}, back, exit]: "
+                                                    )
+                                                # Done, back!
+                                                if plot_var.strip() == "exit":
+                                                    sys.exit()
+                                                elif (
+                                                    plot_var.strip() == "back"
+                                                    or not option.strip()
+                                                ):
+                                                    break
+                                                elif plot_var not in data_var:
+                                                    logger.error(
+                                                        f"[ERR] Invalid input {plot_var}"
+                                                    )
+                                                    continue
+                                                slicer_lib.gmap(
+                                                    plot_var,
+                                                    cmap,
+                                                    gmap_limits,
+                                                    sliced_data,
+                                                )
+                                                if len(data_var) <= 1:
+                                                    plot_var = "back"
+                                        # Colormap.
+                                        elif slice_action == "cmap":
+                                            logger.info(f"\n[cmaps] {plt.colormaps()}")
+                                            cmap = input(
+                                                f"\nSelect a color map for the plot [default cmap {cmap}, back, exit]: "
+                                            )
+                                        # Save the slice data.
+                                        elif slice_action == "save":
+                                            filename = input(
+                                                f"Output filename (use '.csv' to save as GeoCSV, or '.nc' to output as netCDF [back, exit]): "
+                                            )
+                                            # Done, back!
+                                            if filename.strip() == "exit":
+                                                sys.exit()
+                                            elif (
+                                                filename.strip() == "back"
+                                                or not option.strip()
+                                            ):
+                                                break
+                                            elif filename.endswith(".csv"):
+                                                meta = lib.get_geocsv_metadata(
+                                                    sliced_data
+                                                )
+                                                with open(filename, "w") as fp:
+                                                    fp.write(meta)
+                                                sliced_data.to_dataframe().to_csv(
+                                                    filename, mode="a"
+                                                )
+                                            elif filename.endswith(".nc"):
+                                                sliced_data.to_netcdf(
+                                                    filename, mode="w"
+                                                )
+                                            else:
+                                                logger.error(
+                                                    f"[ERR] invalid file type: {filename}"
+                                                )
+                                # What does the user want to do next?
+                                slice_value = input(
+                                    f"\nSlice at {slice_dir} of (between {np.nanmin(ds[slice_dir].data)} and {np.nanmax(ds[slice_dir].data)}) [back, exit]: "
+                                )
+                                # Done, back!
+                                if slice_value.strip() == "exit":
+                                    sys.exit()
+                                elif (
+                                    slice_value.strip() == "back" or not option.strip()
+                                ):
+                                    break
+
+    else:
+        logger.error(f"[ERR] {input_file} is not a valid netCDF file")
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()
