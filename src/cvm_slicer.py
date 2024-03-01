@@ -6,7 +6,11 @@ import getopt
 import xarray as xr
 import numpy as np
 import matplotlib.pyplot as plt
-
+import cartopy.crs as ccrs
+import metpy.calc as mpcalc
+from metpy.cbook import get_test_data
+from metpy.interpolate import cross_section
+from metpy.units import units
 
 """Extract data from a CVM netCDF file. Allow user to inspect the metadata, slice the data, plot, and 
     save the sliced data. Currently slicing is only performed along the existing coordinate planes.
@@ -34,7 +38,6 @@ import slicer_lib as slicer_lib
 
 # Set up the logger.
 logger = lib.get_logger()
-line_break = "\n"
 
 
 def usage():
@@ -50,7 +53,45 @@ def usage():
     )
 
 
+def get_point(location):
+    f"""
+    Get the coordinates for a point.
+
+    Call arguments:
+        location: point's location.
+"""
+    point = None
+    while point is None:
+        if location != "depth":
+            point = input(f"Cross-section {location} (lat, lon) ['back', 'exit']? ")
+        else:
+            point = input(f"Cross-section depth (start, end) ['back', 'exit']? ")
+
+        # Done, back!
+        if point.strip() == "exit":
+            sys.exit()
+        elif point.strip() == "back" or not point.strip():
+            return "back"
+        elif "," not in point:
+            if location != "depth":
+                logger.error(
+                    f"[ERR] invalid {location} coordinates '{point}' input {location} as lat, lon"
+                )
+            else:
+                logger.error(
+                    f"[ERR] invalid {location} range '{point}' input {location} as start, end depths"
+                )
+            point = None
+        else:
+            point = point.split(",")
+            point = [float(i) for i in point]
+            break
+    return point
+
+
 def main():
+    cmap = prop.cmap
+    interpolation_method = prop.interpolation_method
     # Capture the input parameters.
     try:
         argv = sys.argv[1:]
@@ -138,7 +179,7 @@ def main():
 
                 # Variables value ranges.
                 elif option == "range":
-                    logger.info("\nRange:")
+                    logger.info("\nRanges:")
                     for var in ds.variables:
                         logger.info(
                             f"\t{var}: {np.nanmin(ds[var].data):0.2f} to  {np.nanmax(ds[var].data):0.2f} {ds[var].attrs['units']}"
@@ -171,7 +212,7 @@ def main():
                     # Actions.
                     while subset_type != "back":
                         subset_type = input(
-                            f"\nSubset type [volume, slice, back, exit]? "
+                            f"\nSubset type [volume, slice, xsection, back, exit]? "
                         )
                         # Done, back!
                         if subset_type.strip() == "exit":
@@ -240,6 +281,103 @@ def main():
                                         logger.error(
                                             f"[ERR] invalid file type: {filename}"
                                         )
+                        elif subset_type == "xsection":
+                            # A cross-section of the model.
+                            logger.info("\nCoordinates:")
+
+                            for var in ds.coords:
+                                logger.info(
+                                    f"\t{var}: {np.nanmin(ds[var].data):0.2f} to  {np.nanmax(ds[var].data):0.2f} {ds[var].attrs['units']}"
+                                )
+                            start = get_point("start")
+                            if start == "back":
+                                break
+                            end = get_point("end")
+                            if end == "back":
+                                break
+                            depth = get_point("depth")
+                            if depth == "break":
+                                break
+                            plot_data = ds.copy()
+                            utm_zone = None
+                            meta = ds.attrs
+                            if "grid_mapping_name" not in meta:
+                                logger.warning(
+                                    f"[WARN] The 'grid_mapping_name' attribute not found. Assuming geographic coordinate system"
+                                )
+                                grid_mapping_name = "latitude_longitude"
+                            else:
+                                grid_mapping_name = meta["grid_mapping_name"]
+
+                                logger.info(f"grid_mapping_name is {grid_mapping_name}")
+                            if grid_mapping_name == "transverse_mercator":
+                                if "utm_zone" in meta:
+                                    utm_zone = meta["utm_zone"]
+                                    logger.info(f"[INFO] UTM zone: {utm_zone}")
+                                    projection = ccrs.UTM(utm_zone)
+                                    # We use MetPy’s CF parsing to get the data ready for use, and squeeze down the size-one time dimension.
+                                    plot_data = plot_data.metpy.assign_crs(
+                                        projection.to_cf()
+                                    )
+                                    plot_data = plot_data.metpy.parse_cf().squeeze()
+                                    plot_data = (
+                                        plot_data.metpy.assign_latitude_longitude(
+                                            force=True
+                                        )
+                                    )
+                                else:
+                                    logger.error(
+                                        f"[ERR] The required attribute 'utm_zone' is missing for the grid_mapping_name of {grid_mapping_name}"
+                                    )
+                                    break
+                            elif grid_mapping_name == "latitude_longitude":
+                                projection = ccrs.Geodetic()
+                                plot_data = plot_data.metpy.assign_crs(
+                                    projection.to_cf()
+                                )
+                                plot_data = plot_data.metpy.parse_cf().squeeze()
+                            else:
+                                logger.warning(
+                                    f"[ERR] The grid_mapping_name of {grid_mapping_name} is not supported!"
+                                )
+                                break
+
+                            # Plot each model variable.
+                            plot_var = data_var[0]
+                            xsection_data = cross_section(plot_data, start, end)
+                            interp_type = interpolation_method[0]
+                            interp_type = input(
+                                f"\nInterpolation Method [{', '.join(interpolation_method+['back', 'exit'])}, default: {interp_type}]? "
+                            )
+                            if interp_type.strip() == "exit":
+                                sys.exit()
+                            elif interp_type.strip() == "back":
+                                break
+                            elif interp_type not in (interpolation_method):
+                                logger.warning(
+                                    f"[WARN] Invalid interpolation method of {interp_type}. Will use {interpolation_method[0]}"
+                                )
+                                interp_type = interpolation_method[0]
+                            while plot_var:
+
+                                if len(data_var) > 1:
+                                    plot_var = input(
+                                        f"\nVariable to plot {data_var}, back, exit]: "
+                                    )
+                                # Done, back!
+                                if plot_var.strip() == "exit":
+                                    sys.exit()
+                                elif plot_var.strip() == "back" or not option.strip():
+                                    break
+                                elif plot_var not in data_var:
+                                    logger.error(f"[ERR] Invalid input {plot_var}")
+                                    continue
+                                pdata = xsection_data.copy()
+                                pdata["depth"] = -pdata["depth"]
+
+                                pdata[plot_var].plot.contourf(cmap=cmap)
+                                plt.show()
+                                break
 
                         elif subset_type == "slice":
                             # Slice the model.
@@ -340,7 +478,6 @@ def main():
                                         f"[INFO] The sliced data: {sliced_data}"
                                     )
                                     slice_action = "continue"
-                                    cmap = "jet_r"
                                     # Actions.
                                     while slice_action != "back":
                                         slice_action = input(
