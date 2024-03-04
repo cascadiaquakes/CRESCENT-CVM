@@ -7,4 +7,3 @@ na_rep = "nan"
 extension = {"geocsv": ".csv", "netcdf": ".nc"}
 line_break = "\n"
 cmap = "jet_r"
-interpolation_method = ["linear", "nearest"]

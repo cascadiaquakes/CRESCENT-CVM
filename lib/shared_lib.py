@@ -20,6 +20,25 @@ import shared_prop as prop
 import writer_prop as writer_prop
 
 
+def cf_coordinate_names(x,y, aux=False):
+    """Produce CF standard coordinate variable names.
+
+    Keyword arguments:
+    x -- [required] the current x-coordinate variable name
+    y -- [required] the current y-coordinate variable name
+    aux -- [default=False] flag to indicate if these variables are for the auxiliary coordinates.
+    """    
+    if x.lower() == "longitude" and y.lower() == "latitude":
+        return {"x": "longitude", "y":"latitude"}
+    elif aux:
+        return {"x": x, "y": y}
+    elif x.lower() != "longitude" and y.lower() != "latitude":
+        return {"x": "x", "y": "y"}
+    else:
+        logging.error(f"[cf_coordinate_names ERR] invalid coordinate name combinations ({x},{y})")
+        raise
+
+
 def get_geocsv_metadata(ds):
     """Compose GeoCSV style metadata for a given Dataset.
 

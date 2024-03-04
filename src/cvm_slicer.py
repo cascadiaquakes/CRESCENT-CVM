@@ -27,12 +27,11 @@ ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 PROP_DIR = os.path.join(ROOT_DIR, "prop")
 sys.path.append(PROP_DIR)
 import shared_prop as prop
-import netcdf_to_geocsv_prop as convert_prop
+import slicer_prop as slicer_prop
 
 LIB_DIR = os.path.join(ROOT_DIR, prop.LIB_DIR)
 sys.path.append(LIB_DIR)
 import shared_lib as lib
-import netcdf_to_geocsv_lib as convert_lib
 import slicer_lib as slicer_lib
 
 
@@ -53,45 +52,11 @@ def usage():
     )
 
 
-def get_point(location):
-    f"""
-    Get the coordinates for a point.
-
-    Call arguments:
-        location: point's location.
-"""
-    point = None
-    while point is None:
-        if location != "depth":
-            point = input(f"Cross-section {location} (lat, lon) ['back', 'exit']? ")
-        else:
-            point = input(f"Cross-section depth (start, end) ['back', 'exit']? ")
-
-        # Done, back!
-        if point.strip() == "exit":
-            sys.exit()
-        elif point.strip() == "back" or not point.strip():
-            return "back"
-        elif "," not in point:
-            if location != "depth":
-                logger.error(
-                    f"[ERR] invalid {location} coordinates '{point}' input {location} as lat, lon"
-                )
-            else:
-                logger.error(
-                    f"[ERR] invalid {location} range '{point}' input {location} as start, end depths"
-                )
-            point = None
-        else:
-            point = point.split(",")
-            point = [float(i) for i in point]
-            break
-    return point
-
-
 def main():
     cmap = prop.cmap
-    interpolation_method = prop.interpolation_method
+    interpolation_method = slicer_prop.interpolation_method
+    xsection_steps = slicer_prop.steps
+
     # Capture the input parameters.
     try:
         argv = sys.argv[1:]
@@ -163,7 +128,7 @@ def main():
                     aux_coordinates.append(var)
 
             while option != "exit":
-                option = input("[meta, range, subset, help, exit]? ")
+                option = input("[meta, ranges, subset, help, exit]? ")
 
                 # Done, back!
                 if (
@@ -178,7 +143,7 @@ def main():
                     usage()
 
                 # Variables value ranges.
-                elif option == "range":
+                elif option == "ranges":
                     logger.info("\nRanges:")
                     for var in ds.variables:
                         logger.info(
@@ -194,18 +159,9 @@ def main():
 
                     logger.info(f"\n[Metadata] Coordinate Variables:")
                     indent = 14
-                    for var in dimensions:
-                        for attr_indx, attr in enumerate(ds[var].attrs):
-                            if attr_indx == 0:
-                                logger.info(f"\t{var}: ")
-                            if attr == "variable":
-                                ConnectionRefusedError
-                            else:
-                                logger.info(
-                                    f"{indent*' '}{attr}: {ds[var].attrs[attr]}"
-                                )
-                        logger.info(f"{indent*' '}Values:")
-                        lib.view_list(ds[var].data, indent=indent)
+                    slicer_lib.display_var_meta(ds, dimensions, indent)
+                    slicer_lib.display_var_meta(ds, data_var, indent, values=False)
+
                 # Subset the model.
                 elif option == "subset":
                     subset_type = "volume"
@@ -286,16 +242,18 @@ def main():
                             logger.info("\nCoordinates:")
 
                             for var in ds.coords:
-                                logger.info(
-                                    f"\t{var}: {np.nanmin(ds[var].data):0.2f} to  {np.nanmax(ds[var].data):0.2f} {ds[var].attrs['units']}"
-                                )
-                            start = get_point("start")
+                                # Cross-sections use geographic coordinates.
+                                if var in ["latitude", "longitude", "depth"]:
+                                    logger.info(
+                                        f"\t{var}: {np.nanmin(ds[var].data):0.2f} to  {np.nanmax(ds[var].data):0.2f} {ds[var].attrs['units']}"
+                                    )
+                            start = slicer_lib.get_point("start")
                             if start == "back":
                                 break
-                            end = get_point("end")
+                            end = slicer_lib.get_point("end")
                             if end == "back":
                                 break
-                            depth = get_point("depth")
+                            depth = slicer_lib.get_point("depth")
                             if depth == "break":
                                 break
                             plot_data = ds.copy()
@@ -342,9 +300,7 @@ def main():
                                 )
                                 break
 
-                            # Plot each model variable.
-                            plot_var = data_var[0]
-                            xsection_data = cross_section(plot_data, start, end)
+                            # Cross-section interpolation type.
                             interp_type = interpolation_method[0]
                             interp_type = input(
                                 f"\nInterpolation Method [{', '.join(interpolation_method+['back', 'exit'])}, default: {interp_type}]? "
@@ -358,6 +314,37 @@ def main():
                                     f"[WARN] Invalid interpolation method of {interp_type}. Will use {interpolation_method[0]}"
                                 )
                                 interp_type = interpolation_method[0]
+
+                            # Steps in the cross-section.
+                            steps = xsection_steps
+                            steps = input(
+                                f"\nsThe number of points along cross-section ['back', 'exit', default: {steps}]? "
+                            )
+                            if not steps.strip():
+                                steps = xsection_steps
+                            elif steps.strip() == "exit":
+                                sys.exit()
+                            elif steps.strip() == "back":
+                                break
+                            elif not steps.isnumeric():
+                                logger.warning(
+                                    f"[WARN] Invalid number of steps, expected an integer. Will use {xsection_steps}"
+                                )
+                                steps = xsection_steps
+                            else:
+                                steps = int(steps)
+
+                            # Extract the cross-section.
+                            xsection_data = cross_section(
+                                plot_data,
+                                start,
+                                end,
+                                steps=steps,
+                                interp_type=interp_type,
+                            )
+
+                            # Iterate through the model variables and plot each cross-section.
+                            plot_var = data_var[0]
                             while plot_var:
 
                                 if len(data_var) > 1:

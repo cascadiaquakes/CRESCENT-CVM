@@ -49,6 +49,7 @@ def netcdf_to_geocsv(
                 geocsv_metadata.append(f"# {var}_dimensions: {len(ds[var].dims)}")
 
             for att in ds[var].attrs:
+
                 geocsv_metadata.append(f"# {var}_{att}: {ds[var].attrs[att]}")
                 if att == "missing_value":
                     geocsv_metadata.append(f"# {var}_missing_value: {prop.na_rep}")

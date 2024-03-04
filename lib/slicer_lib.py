@@ -1,8 +1,85 @@
+import os
+import sys
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
 from cartopy.mpl.gridliner import LONGITUDE_FORMATTER, LATITUDE_FORMATTER
 
 import matplotlib.pyplot as plt
+
+# Get the root _directory.
+ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+
+PROP_DIR = os.path.join(ROOT_DIR, "prop")
+sys.path.append(PROP_DIR)
+import shared_prop as prop
+
+LIB_DIR = os.path.join(ROOT_DIR, prop.LIB_DIR)
+sys.path.append(LIB_DIR)
+import shared_lib as lib
+
+# Set up the logger.
+logger = lib.get_logger()
+
+
+def get_point(location):
+    f"""
+    Get the coordinates for a point.
+
+    Call arguments:
+        location: point's location.
+    """
+    point = None
+    while point is None:
+        if location != "depth":
+            point = input(
+                f"Cross-section {location} point (lat, lon) ['back', 'exit']? "
+            )
+        else:
+            point = input(f"Cross-section depth range (start, end) ['back', 'exit']? ")
+
+        # Done, back!
+        if point.strip() == "exit":
+            sys.exit()
+        elif point.strip() == "back" or not point.strip():
+            return "back"
+        elif "," not in point:
+            if location != "depth":
+                logger.error(
+                    f"[ERR] invalid {location} coordinates '{point}' input {location} as lat, lon"
+                )
+            else:
+                logger.error(
+                    f"[ERR] invalid {location} range '{point}' input {location} as start, end depths"
+                )
+            point = None
+        else:
+            point = point.split(",")
+            point = [float(i) for i in point]
+            break
+    return point
+
+
+def display_var_meta(ds, meta, indent, values=True):
+    """
+    Display metadata fora given variable.
+
+    Call arguments:
+        ds - [required] the xarray dataset
+        meta - [required] dataset metadata
+        indent - [required] display indent
+        values - [optional, default: True] display the values
+    """
+    for var in meta:
+        for attr_indx, attr in enumerate(ds[var].attrs):
+            if attr_indx == 0:
+                logger.info(f"\t{var}: ")
+            if attr == "variable":
+                ConnectionRefusedError
+            else:
+                logger.info(f"{indent*' '}{attr}: {ds[var].attrs[attr]}")
+        if values:
+            logger.info(f"{indent*' '}Values:")
+            lib.view_list(ds[var].data, indent=indent)
 
 
 def slicer(ds, slice_dir, slice_value, slice_limits):

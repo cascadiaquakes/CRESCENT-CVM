@@ -59,67 +59,91 @@ def get_metadata(params):
     """
 
     # Retrieve individual metadata dictionaries.
-    metadata = dict()
+    metadata_g = dict()
+    metadata_v = dict()
+    metadata_g["repository"] = get_repository_info(params, writer_prop)
+    metadata_g["conventions"] = get_param(writer_prop, "conventions")
+    metadata_g["model"] = get_model_dictionary(params)
+    metadata_g["geospatial"] = get_param(params, "geospatial")
+    # Make sure geospatial min, max, and resolution are float.
+    for _key in metadata_g["geospatial"]:
+        if "_min" in _key or "_max" in _key or "_resolution" in _key:
+            metadata_g["geospatial"][_key] = float(metadata_g["geospatial"][_key])
 
-    metadata["repository"] = get_repository_info(params, writer_prop)
-    metadata["conventions"] = get_param(writer_prop, "conventions")
-    metadata["model"] = get_model_dictionary(params)
-    metadata["geospatial"] = get_param(params, "geospatial")
-    metadata["corresponding_author"] = get_param(params, "corresponding_author")
-    metadata["global_attrs"] = get_param(params, "global_attrs")
+    metadata_g["corresponding_author"] = get_param(params, "corresponding_author")
+    metadata_g["global_attrs"] = get_param(params, "global_attrs")
 
     grid_mapping_name = get_param(params, "grid_mapping_name")
-    metadata["global_attrs"]["grid_mapping_name"] = grid_mapping_name
+    metadata_g["global_attrs"]["grid_mapping_name"] = grid_mapping_name
 
     utm_zone = get_param(params, "utm_zone")
-    metadata["global_attrs"]["utm_zone"] = utm_zone
+    metadata_g["global_attrs"]["utm_zone"] = str(utm_zone)
 
     ellipsoid = get_param(params, "ellipsoid")
-    metadata["global_attrs"]["ellipsoid"] = ellipsoid
+    metadata_g["global_attrs"]["ellipsoid"] = ellipsoid
 
-    metadata["x"] = get_param(params, "x")
-    metadata["y"] = get_param(params, "y")
-    metadata["z"] = get_param(params, "z", required=False)
-    metadata["x2"] = get_param(params, "x2", required=False)
-    metadata["y2"] = get_param(params, "y2", required=False)
+    metadata_v["x"] = get_param(params, "x")
+    metadata_v["y"] = get_param(params, "y")
+    metadata_v["z"] = get_param(params, "z", required=False)
+    metadata_v["x2"] = get_param(params, "x2", required=False)
+    metadata_v["y2"] = get_param(params, "y2", required=False)
     variables = get_param(params, "variables")
 
     data_variables = dict()
     for var in variables:
         data_variables[var] = dict()
         for key in variables[var]:
-            data_variables[var][f"{var}_{key}"] = variables[var][key]
+            data_variables[var][f"{key}"] = variables[var][key]
 
         # Only if there are auxiliary coordinates.
-        if metadata["x2"] is not None:
-            data_variables[var][
-                f"{var}_coordinates"
-            ] = f'{metadata["x"]["variable"]} {metadata["y"]["variable"]}'
+        if metadata_v["x2"] is not None:
+            _vars = lib.cf_coordinate_names(
+                metadata_v["x2"]["variable"], metadata_v["y2"]["variable"], aux=True
+            )
+            data_variables[var][f"coordinates"] = f'{_vars["x"]} {_vars["y"]}'
+
+        if metadata_v["x"]["variable"] == "longitude":
+            data_variables[var]["grid_mapping"] = "latitude_longitude"
+        else:
+            data_variables[var]["grid_mapping"] = "transverse_mercator"
 
     var_dict = dict()
-    for var in (
-        metadata["x"],
-        metadata["y"],
-        metadata["z"],
-        metadata["x2"],
-        metadata["y2"],
-    ):
-        if var is not None:
-            var_dict[var["variable"]] = var
+    if metadata_v["x"] is not None:
+        _vars = lib.cf_coordinate_names(
+            metadata_v["x"]["variable"], metadata_v["y"]["variable"]
+        )
+        var_dict[_vars["x"]] = metadata_v["x"]
+        var_dict[_vars["y"]] = metadata_v["y"]
+
+    if metadata_v["z"] is not None:
+        var_dict[metadata_v["z"]["variable"]] = metadata_v["z"]
+
+    if metadata_v["x2"] is not None:
+        _vars = lib.cf_coordinate_names(
+            metadata_v["x2"]["variable"], metadata_v["y2"]["variable"], aux=True
+        )
+        var_dict[_vars["x"]] = metadata_v["x2"]
+        var_dict[_vars["y"]] = metadata_v["y2"]
+
     var_dict = lib.merge_dictionaries(var_dict, [data_variables])
 
     metadata_dict = lib.merge_dictionaries(
         dict(),
         [
-            metadata["model"],
-            metadata["conventions"],
-            metadata["corresponding_author"],
-            metadata["geospatial"],
-            metadata["repository"],
-            metadata["global_attrs"],
+            metadata_g["model"],
+            metadata_g["conventions"],
+            metadata_g["corresponding_author"],
+            metadata_g["geospatial"],
+            metadata_g["repository"],
+            metadata_g["global_attrs"],
         ],
     )
-    return metadata_dict, metadata, var_dict, data_variables
+    return (
+        metadata_dict,
+        lib.merge_dictionaries(metadata_v, [metadata_g]),
+        var_dict,
+        data_variables,
+    )
 
 
 def write_json_metadata(output, metadata_dict, var_dict, data_variables):
@@ -157,6 +181,7 @@ def get_geocsv_metadata(params, metadata_dict, var_dict):
         f"# dataset: {get_param(writer_prop, 'dataset_version')}\n"
         f"# delimiter: {delimiter}"
     )
+
     for _key in metadata_dict:
         if _key.strip() not in ("variables", "data_vars"):
             geocsv_metadata = f"{geocsv_metadata}{line_break}# {writer_prop.global_prefix}{_key}: {metadata_dict[_key]}"
@@ -203,6 +228,7 @@ def write_geocsv_file(df, params, output, metadata_dict, var_dict):
     geocsv_file = f"{output}.csv"
     with open(geocsv_file, "w") as fp:
         fp.write(f"{metadata}\n")
+    print()
     df.to_csv(
         geocsv_file, mode="a", sep=delimiter, columns=params.data_columns, index=False
     )
@@ -256,6 +282,8 @@ def add_aux_coord_columns(df, coords):
         _y = row[_yvar]
         _iy = coords["y"]["data"].index(_y)
 
+        # As a default, variables with float types are attributed a _FillValue of NaN in the output file,
+        # unless explicitly disabled with an encoding {'_FillValue': None}.
         x2.append(round(coords["x2"]["data"][_ix][_iy], fix))
         y2.append(round(coords["y2"]["data"][_ix][_iy], fix))
     df[coords["x2"]["var"]] = x2
@@ -279,7 +307,6 @@ def get_coords(df, metadata):
 
     coords["y"] = get_var_from_df(df, metadata, "y")
     logger.info(f"[INFO] collected Y coordinate information: {coords['y']['var']}")
-
     # Is this a 3D model?
     if metadata["z"] is not None:
         coords["z"] = get_var_from_df(df, metadata, "z")
@@ -288,7 +315,13 @@ def get_coords(df, metadata):
     # Auxiliary coordinates?
     if metadata["x2"] is not None:
         # Aux data info provided in the data file.
-        if len(metadata["x2"]["column"].strip()) > 0:
+        aux_data = True
+        if metadata["x2"]["column"] is None:
+            aux_data = False
+        elif len(metadata["x2"]["column"].strip()) <= 0:
+            aux_data = False
+        if aux_data:
+            _vars = lib.cf_coordinate_names()
             coords["x2"] = get_var_from_df(df, metadata, "x2")
             logger.info(
                 f"[INFO] collected auxiliary X coordinate information: {coords['x2']['var']}"
@@ -312,6 +345,10 @@ def get_coords(df, metadata):
                 logger.info(
                     f"[INFO] grid_mapping_name: {grid_mapping_name}: compute longitude and latitude coordinates"
                 )
+
+            # Set the column for x2 the same as the variable name as it was either None or blank.
+            metadata["x2"]["column"] = metadata["x2"]["variable"]
+
             x2 = np.empty((len(coords["x"]["data"]), len(coords["y"]["data"])))
             x2[:] = np.nan
             y2 = np.empty((len(coords["x"]["data"]), len(coords["y"]["data"])))
@@ -325,12 +362,15 @@ def get_coords(df, metadata):
                         metadata["global_attrs"]["ellipsoid"],
                         xy_to_latlon=xy_to_latlon,
                     )
-            coords["x2"] = {"var": metadata["x2"]["variable"], "data": x2}
+            variables = lib.cf_coordinate_names(
+                metadata["x2"]["variable"], metadata["y2"]["variable"], aux=True
+            )
+            coords["x2"] = {"var": variables["x"], "data": x2}
             logger.info(
                 f"[INFO] collected auxiliary X coordinate information: {coords['x2']['var']}"
             )
 
-            coords["y2"] = {"var": metadata["y2"]["variable"], "data": y2}
+            coords["y2"] = {"var": variables["y"], "data": y2}
             logger.info(
                 f"[INFO] collected auxiliary Y coordinate information: {coords['y2']['var']}"
             )
@@ -436,41 +476,47 @@ def build_xarray_dataframe(data_variables, coords, var_grid, metadata):
 
     xr_df = dict()
     for _var in data_variables.keys():
+        names1 = lib.cf_coordinate_names(coords["x"]["var"], coords["y"]["var"])
+        if "x2" in coords:
+            names2 = lib.cf_coordinate_names(
+                coords["x2"]["var"], coords["y2"]["var"], aux=True
+            )
+
         if "x2" in coords and "z" in coords:
             xr_df[_var] = xr.DataArray(
                 var_grid[_var],
                 coords={
                     coords["z"]["var"]: coords["z"]["data"],
-                    coords["y"]["var"]: coords["y"]["data"],
-                    coords["x"]["var"]: coords["x"]["data"],
-                    metadata["x2"]["variable"]: (
-                        (coords["x"]["var"], coords["y"]["var"]),
+                    names1["y"]: coords["y"]["data"],
+                    names1["x"]: coords["x"]["data"],
+                    names2["x"]: (
+                        (names1["x"], names1["y"]),
                         coords["x2"]["data"],
                     ),
-                    metadata["y2"]["variable"]: (
-                        (coords["x"]["var"], coords["y"]["var"]),
+                    names2["y"]: (
+                        (names1["x"], names1["y"]),
                         coords["y2"]["data"],
                     ),
                 },
-                dims=[coords["z"]["var"], coords["y"]["var"], coords["x"]["var"]],
+                dims=[coords["z"]["var"], names1["y"], names1["x"]],
                 attrs=netcdf_attrs(data_variables, _var),
             )
         elif "x2" in coords:
             xr_df[_var] = xr.DataArray(
                 var_grid[_var],
                 coords={
-                    coords["y"]["var"]: coords["y"]["data"],
-                    coords["x"]["var"]: coords["x"]["data"],
-                    metadata["x2"]["variable"]: (
-                        (coords["x"]["var"], coords["y"]["var"]),
+                    names1["y"]: coords["y"]["data"],
+                    names1["x"]: coords["x"]["data"],
+                    names2["x"]: (
+                        (names1["x"], names1["y"]),
                         coords["x2"]["data"],
                     ),
-                    metadata["y2"]["variable"]: (
-                        (coords["x"]["var"], coords["y"]["var"]),
+                    names2["y"]: (
+                        (names1["x"], names1["y"]),
                         coords["y2"]["data"],
                     ),
                 },
-                dims=[coords["y"]["var"], coords["x"]["var"]],
+                dims=[names1["y"], names1["x"]],
                 attrs=netcdf_attrs(data_variables, _var),
             )
         else:
@@ -484,8 +530,8 @@ def build_xarray_dataframe(data_variables, coords, var_grid, metadata):
                     ),
                     dims=(
                         coords["z"]["var"],
-                        coords["y"]["var"],
-                        coords["x"]["var"],
+                        names1["y"],
+                        names1["x"],
                     ),
                     attrs=netcdf_attrs(data_variables, _var),
                 )
@@ -497,8 +543,8 @@ def build_xarray_dataframe(data_variables, coords, var_grid, metadata):
                         coords["x"]["data"],
                     ),
                     dims=(
-                        coords["y"]["var"],
-                        coords["x"]["var"],
+                        names1["y"],
+                        names1["x"],
                     ),
                     attrs=netcdf_attrs(data_variables, _var),
                 )
@@ -525,8 +571,14 @@ def build_xarray_dataset(xr_df, coords, metadata):
             ],
         ),
     )
+
     for _var in coords:
-        var = coords[_var]["var"]
+        var = _var
+        # For x & y dimensions we use x and y, unless they are lat/lon.
+        if _var not in ("x", "y", "x2", "y2", "z"):
+            var = _var
+        else:
+            var = coords[_var]["var"]
         ds[var].attrs = netcdf_attrs(metadata, _var)
     return ds
 
@@ -540,7 +592,6 @@ def write_netcdf_file(output, xr_dset, nc_format):
     nc_format -- [required] the output netCDF type
     """
     netcdf_file = f"{output}.nc"
-
     if nc_format["encoding"] is None:
         xr_dset.to_netcdf(netcdf_file)  # , format=nc_format["format"])
     else:

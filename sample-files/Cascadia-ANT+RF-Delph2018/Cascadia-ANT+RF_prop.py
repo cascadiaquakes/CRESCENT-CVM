@@ -218,7 +218,7 @@ long_name: Text that describes the variable more fully.
 units: Variable's units
 """
 x2 = {
-    "column": "",
+    "column": None,
     "variable": "easting",
     "standard_name": "easting",
     "long_name": "easting; UTM",

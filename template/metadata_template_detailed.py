@@ -273,4 +273,4 @@ variables = [
 """The following line must include all _column values defined above. The order depends on
 the column order of the data block:
 """
-data_columns = ["latitude", "longitude", "easting", "northing", "depth", "vs"]
+data_columns = ["latitude", "longitude", "x", "y", "depth", "vs"]
