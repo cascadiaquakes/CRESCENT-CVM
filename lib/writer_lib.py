@@ -45,10 +45,19 @@ def get_model_dictionary(params):
     Keyword arguments:
     params -- [required] the parameter module
     """
-    model = get_param(params, "model")
-    model = lib.insert_after(model, ("id", model["model"]), "model")
+    model_dict = get_param(params, "model")
+    if "name" not in model_dict:
+        logger.error(
+            f"[ERR] parameter 'name' is required but it is missing from the model section of the parameter file."
+        )
+        sys.exit(2)
+    else:
+        if "model" not in model_dict:
+            model = model_dict["name"]
+            model_dict = lib.insert_after(model_dict, ("model", model), "name")
 
-    return model
+    model_dict = lib.insert_after(model_dict, ("id", model_dict["model"]), "model")
+    return model_dict
 
 
 def get_metadata(params):
@@ -90,7 +99,7 @@ def get_metadata(params):
     variables = get_param(params, "variables")
 
     data_variables = dict()
-    for var in variables:
+    for var in list(variables.keys()):
         data_variables[var] = dict()
         for key in variables[var]:
             data_variables[var][f"{key}"] = variables[var][key]
