@@ -330,7 +330,6 @@ def get_coords(df, metadata):
         elif len(metadata["x2"]["column"].strip()) <= 0:
             aux_data = False
         if aux_data:
-            _vars = lib.cf_coordinate_names()
             coords["x2"] = get_var_from_df(df, metadata, "x2")
             logger.info(
                 f"[INFO] collected auxiliary X coordinate information: {coords['x2']['var']}"
