@@ -71,7 +71,7 @@ def main():
         sys.exit(2)
 
     # Initialize the variables.
-    meta = None
+    meta_file = None
     output = None
     data_file = None
     output_types = "netcdf"
@@ -80,20 +80,13 @@ def main():
             usage()
             sys.exit()
         elif o in ("-m", "--meta"):
-            meta = a
-            if not os.path.isfile(meta):
-                logger.error(f"[ERR] Invalid metadata file: {meta}. File not found!")
-                sys.exit(2)
-            param_path = os.path.dirname(os.path.abspath(meta))
-            sys.path.append(param_path)
-            param_file = os.path.basename(meta)
-            param_file = os.path.splitext(param_file)[0]
-            if "." in param_file:
+            meta_file = a
+            if not os.path.isfile(meta_file):
                 logger.error(
-                    f"[ERR] Invalid metadata filename: {param_file}. \nThe parameter file base name can't contain ., ?, !, etc."
+                    f"[ERR] Invalid metadata file: {meta_file}. File not found!"
                 )
                 sys.exit(2)
-            params = importlib.import_module(param_file)
+            params = lib.read_model_metadata(meta_file)
         elif o in ("-d", "--data"):
             data_file = a
         elif o in ("-o", "--output"):
@@ -110,9 +103,15 @@ def main():
         sys.exit(1)
 
     # Metadata file is required.
-    if meta is None:
+    if meta_file is None:
         usage()
         logger.error(f"[ERR] metadata file is required.")
+        sys.exit(1)
+
+    # Data file is required.
+    if data_file is None:
+        usage()
+        logger.error(f"[ERR] data file is required.")
         sys.exit(1)
 
     # Check the output types.
@@ -124,9 +123,8 @@ def main():
                 f"[ERR] Invalid output type [{_type}] requested. Must be one of {list(writer_prop.valid_output_types)}."
             )
             sys.exit(1)
-
     if "netcdf" in output_types:
-        nc_format = params.netcdf_format
+        nc_format = params["netcdf_format"]
         if nc_format not in writer_prop.netcdf_format:
             usage()
             logger.error(
@@ -136,8 +134,8 @@ def main():
         nc_format = writer_prop.netcdf_format[nc_format]
 
     # Parse the metadata file.
-    if not os.path.isfile(meta):
-        logger.error(f"[ERR] metadata file '{meta}' not found!")
+    if not os.path.isfile(meta_file):
+        logger.error(f"[ERR] metadata file '{meta_file}' not found!")
         sys.exit(1)
     else:
         metadata_dict, metadata, var_dict, data_variables = meta_lib.get_metadata(
@@ -169,6 +167,9 @@ def main():
         if data_file is None:
             logger.warning(f"[WARN] No data file was provided.")
             sys.exit(0)
+        elif not os.path.isfile(data_file):
+            logger.error(f"[ERR] data file '{data_file}' not found!")
+            sys.exit(1)
         else:
             df = meta_lib.read_csv(
                 data_file,
@@ -208,6 +209,10 @@ def main():
                 logger.info(f"[{time_txt}] Converted the DataFrame to Dataset")
 
                 # Output the netCDF file.
+                # For the coordinate variables, CF convention requires excluding the _FillValue.
+                # So, we have to  explicitly disable it via encoding.
+                for _var in xr_dset.coords:
+                    xr_dset.coords[_var].encoding["_FillValue"] = None
                 message = meta_lib.write_netcdf_file(output, xr_dset, nc_format)
                 t0, time_txt = lib.time_it(t0)
                 logger.info(f"[{time_txt}] {message}")

@@ -20,6 +20,91 @@ import shared_prop as prop
 import writer_prop as writer_prop
 
 
+def get_key_value(line):
+    """split a line of model metadata to its line_type, key, value elements.
+
+    Keyword arguments:
+    line -- [required] a single input line.
+    """    
+
+    line = line.strip()
+    line_type = None
+    key = None
+    value = None
+    if not line or line.startswith("#"):
+        return line_type,key,value
+
+    # This is really checking for either > or >>.
+    if "=" not in line and line[0] != ">":
+         logging.error(f"[ERR] did not find '=' in: {line}")
+         sys.exit(2)
+
+    if line[0] not in (">>", ">", "-"):
+         line_type = ">>>"
+    elif line.startswith(">>"):
+        line_type = line[0:2]
+        line = line[2:].strip()
+    else:
+        line_type = line[0]
+        line = line[1:].strip()
+
+    if line_type not in ("-", ">", ">>") and "=" not in line:
+         logging.error(f"[ERR] did not find '=' in: {line}")
+         sys.exit(2)
+
+    if line_type in (">", ">>"):
+        key = line.strip()
+        value = None
+    else:
+        key, value = line.split("=", 1)
+        key = key.strip()
+        value = value.strip()
+
+    return line_type,key,value
+
+
+def read_model_metadata(model_file):
+    """Get model parameters from a parameter file and convert it to a dictionary.
+
+    Keyword arguments:
+    model_file -- [required] the model metadata file 
+    """   
+    with open (model_file, "r") as fp:
+        data = fp.read()
+        lines = data.split("\n")
+        params = dict()
+        group_key = None
+        subgroup_key = None
+        for line in lines:
+            line_type, key, value = get_key_value(line)
+            if line_type is None:
+                continue
+            elif line_type == ">":
+                group_key = key
+                subgroup_key = None
+                params[group_key] = dict()
+            if line_type == ">>" and group_key is None:
+                logging.error(f"[ERR] found an orphaned subgroup: {line}")
+                sys.exit(2)
+            elif line_type == ">>":
+                subgroup_key = key
+                params[group_key][subgroup_key] = dict()
+            elif line_type == ">>>" and group_key is None and subgroup_key is None:
+                print(f"[ERR] item: {line} not in a group.subgroup")
+                sys.exit(2)
+            elif line_type == ">>>" and subgroup_key is None:
+                params[group_key][key] = value
+            elif line_type == ">>>":
+                params[group_key][subgroup_key][key] = value
+            elif line.startswith("-"):
+                group_key = None
+                subgroup_key = None
+
+                params[key] = value
+
+    return params
+    
+
 def cf_coordinate_names(x,y, aux=False):
     """Produce CF standard coordinate variable names.
 
@@ -141,7 +226,6 @@ def read_csv(
     """
     delimiter = delimiter.strip()
     if len(delimiter) <= 0:
-        # df = pandas.read_csv(data_file, delim_whitespace=True)
         df = pd.concat(
             [
                 chunk
@@ -261,8 +345,8 @@ def get_logger(log_file=None, log_stream=None, config=True, log_level=0):
     return logger
 
 
-def get_param(params, var, required=True):
-    """Extract a variable from a parameter module..
+def get_module_param(params, var, required=True):
+    """Extract a variable from a parameter module.
 
     Keyword arguments:
     param -- [required] the parameter module
@@ -274,10 +358,9 @@ def get_param(params, var, required=True):
 
     # Set up the logger.
     logger = get_logger()
-
     if var not in dir(params):
         logger.error(
-            f"[ERR] parameter '{var}' is required but it is missing from the parameter file."
+            f"[ERR] parameter '{var}' is required but it is missing from the parameter module."
         )
         if required:
             sys.exit(2)
@@ -286,6 +369,30 @@ def get_param(params, var, required=True):
 
     return getattr(params, var)
 
+
+def get_param(params, var, required=True):
+    """Extract a variable from a parameter dictionary.
+
+    Keyword arguments:
+    param -- [required] the parameter dictionary
+    var -- [required] the variable to extract from the param object.
+    required [default True] -- is var required? If True, the code will
+    exit if not found.
+
+    """
+
+    # Set up the logger.
+    logger = get_logger()
+    if var not in params:
+        logger.error(
+            f"[ERR] parameter '{var}' is required but it is missing from the parameter file."
+        )
+        if required:
+            sys.exit(2)
+        else:
+            return None
+
+    return params[var]
 
 def merge_dictionaries(parent_dict, dict_list):
     """Merge a list of dictionaries to the parent dictionary using update() method.

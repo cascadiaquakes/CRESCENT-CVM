@@ -15,7 +15,7 @@ LIB_DIR = os.path.join(ROOT_DIR, prop.LIB_DIR)
 sys.path.append(LIB_DIR)
 import shared_lib as lib
 import writer_lib
-from shared_lib import get_param, utc_now
+from shared_lib import get_module_param, get_param, utc_now
 
 logger = lib.get_logger()
 
@@ -31,7 +31,7 @@ def netcdf_to_geocsv(
     caller -- [default cvm_convert.py] -- The calling script"""
 
     geocsv_metadata = list()
-    geocsv_metadata.append(f"# dataset: {get_param(prop, 'dataset_version')}")
+    geocsv_metadata.append(f"# dataset: {get_module_param(prop, 'dataset_version')}")
     geocsv_metadata.append(f"# delimiter: {prop.delimiter}")
     geocsv_metadata.append(f"# created: {utc_now()['date_time']} UTC ({caller})")
     geocsv_metadata.append(f"# netcdf_file: {os.path.basename(input_file)}")

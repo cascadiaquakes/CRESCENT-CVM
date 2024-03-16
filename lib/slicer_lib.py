@@ -32,10 +32,10 @@ def get_point(location):
     while point is None:
         if location != "depth":
             point = input(
-                f"Cross-section {location} point (lat, lon) ['back', 'exit']? "
+                f"Cross-section {location} point as lat,lon ['back', 'exit']? "
             )
         else:
-            point = input(f"Cross-section depth range (start, end) ['back', 'exit']? ")
+            point = input(f"Cross-section depth range as start, end ['back', 'exit']? ")
 
         # Done, back!
         if point.strip() == "exit":
@@ -45,7 +45,7 @@ def get_point(location):
         elif "," not in point:
             if location != "depth":
                 logger.error(
-                    f"[ERR] invalid {location} coordinates '{point}' input {location} as lat, lon"
+                    f"[ERR] invalid {location} coordinates '{point}' input {location} as lat,lon"
                 )
             else:
                 logger.error(

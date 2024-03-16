@@ -3,6 +3,7 @@
 import sys
 import os
 import getopt
+from pathlib import Path
 import xarray as xr
 import numpy as np
 import matplotlib.pyplot as plt
@@ -13,14 +14,16 @@ from metpy.interpolate import cross_section
 from metpy.units import units
 
 """Extract data from a CVM netCDF file. Allow user to inspect the metadata, slice the data, plot, and 
-    save the sliced data. Currently slicing is only performed along the existing coordinate planes.
+    save the sliced data. The slicing can be performed along the existing coordinate planes or as an interpolated cross-sectional slice through gridded data.
 
     Call arguments:
         -h, --help: this message.
         -i, --input: [required] the input nefiletCDF filename.
+        -v, --verbose [optional] provide informative information during the run.
 """
 
 script = os.path.basename(sys.argv[0])
+script = Path(script).stem
 # Get the directory paths.
 ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 
@@ -34,6 +37,7 @@ sys.path.append(LIB_DIR)
 import shared_lib as lib
 import slicer_lib as slicer_lib
 
+dash = 10 * "-"
 
 # Set up the logger.
 logger = lib.get_logger()
@@ -47,6 +51,7 @@ def usage():
 
     Call arguments:
         -h, --help: this message.
+        -v, --verbose: [optional] run in verbose mode.
         -i, --input: [required] the input nefiletCDF filename.
 """
     )
@@ -61,7 +66,7 @@ def main():
     try:
         argv = sys.argv[1:]
         opts, args = getopt.getopt(
-            argv, "hmi:o:", ["help", "meta", "input=", "output="]
+            argv, "hvmi:o:", ["help", "verbose", "meta", "input=", "output="]
         )
     except getopt.GetoptError as err:
         # Print the error, and help information and exit:
@@ -71,11 +76,14 @@ def main():
     # Initialize the variables.
     input_file = None
     output_file = None
+    verbose = False
     meta = None
     for o, a in opts:
         if o in ("-h", "--help"):
             usage()
             sys.exit()
+        elif o in ("-v", "--verbose"):
+            verbose = True
         elif o in ("-m", "--meta"):
             meta = True
         elif o in ("-i", "--input"):
@@ -111,7 +119,16 @@ def main():
     # Convert netCDF to GeoCSV.
     logger.info("\n")
     if file_type["engine"] == "netcdf" and file_type["valid"] == True:
-        logger.info(f"[INFO] {input_file} is a netCDF file")
+        if verbose:
+            logger.info(
+                f"\n\n{script}\n{dash}"
+                f"\nTool for interactively extracting data from a CVM netCDF file."
+                f"\nUser can inspect the metadata, slice the data, plot, and save"
+                f"\nthe sliced data. Slicing can be performed along the existing"
+                f"\ncoordinate planes or as an interpolated cross-sectional slice "
+                f"through gridded data."
+            )
+        logger.info(f"\nLoaded {input_file} and it is a netCDF file")
         with xr.open_dataset(input_file, engine="netcdf4") as ds:
             data_var = list(ds.data_vars)
             dimensions = list(ds.dims)
@@ -119,6 +136,12 @@ def main():
             aux_coordinates = list()
             coordinates = list(ds.coords)
             for var in coordinates:
+                if var not in ds:
+                    logger.error(f"[ERR] Missing data for variable {var}")
+                    sys.exit(3)
+                elif ds[var].data.size <= 1:
+                    logger.error(f"[ERR] Missing data for variable {var}")
+                    sys.exit(3)
                 coordinate_values[var] = list(ds[var].data)
 
             for var in coordinates:
@@ -128,7 +151,11 @@ def main():
                     aux_coordinates.append(var)
 
             while option != "exit":
-                option = input("[meta, ranges, subset, help, exit]? ")
+                if verbose:
+                    logger.info(
+                        f"\n\nThe available options are:\n\tmeta - to view file's metadata\n\tranges - to display ranges for variables\n\tsubset - to subset the data\n\t{dash}\n\thelp\n\texit "
+                    )
+                option = input("select option [meta, ranges, subset, help, exit]? ")
 
                 # Done, back!
                 if (
@@ -167,8 +194,13 @@ def main():
                     subset_type = "volume"
                     # Actions.
                     while subset_type != "back":
+                        # f"\nSubset type [volume, slice, xsection, back, exit]? "
+                        if verbose:
+                            logger.info(
+                                f"\n\nYou can subset the data as:\n\tvolume - a subvolume of data\n\tslice - a slice along a coordinate axis\n\txsection - a vertical slice in an arbitrary direction\n\t{dash}\n\tback - takes you to the previous step\n\texit "
+                            )
                         subset_type = input(
-                            f"\nSubset type [volume, slice, xsection, back, exit]? "
+                            f"\nselect [volume, slice, xsection, back, exit]? "
                         )
                         # Done, back!
                         if subset_type.strip() == "exit":
@@ -184,8 +216,12 @@ def main():
                                     np.nanmin(subset[dim].data),
                                     np.nanmax(subset[dim].data),
                                 )
+                                if verbose:
+                                    logger.info(
+                                        f"\n\nEnter the {dim} range for the volume as minimum,maximum.\n\tPress return to accept the default values (full range) \n\t{dash}\n\tback - takes you to the previous step\n\texit "
+                                    )
                                 _limits = input(
-                                    f"\n{dim} limits [default values { subset_limits[dim]}, back, exit]? "
+                                    f"\n{dim} range [default values { subset_limits[dim]}, back, exit]? "
                                 )
 
                                 # Done, back!
@@ -206,40 +242,44 @@ def main():
                                     )
                             subset_volume = slicer_lib.subsetter(ds, subset_limits)
                             # Subset the data.
-                            logger.info(f"[INFO] The subset volume: {subset_volume}")
+                            logger.info(
+                                f"\n\nThe selected volume information:\n\n{subset_volume}"
+                            )
                             subset_action = "continue"
                             # Actions.
                             while subset_action != "back":
-                                subset_action = input(f"\nAction [save, back, exit]? ")
-                                # Done, back!
-                                if subset_action.strip() == "exit":
-                                    sys.exit()
-                                elif (
-                                    subset_action.strip() == "back"
-                                    or not option.strip()
-                                ):
-                                    break
                                 # Save the subset data.
-                                elif subset_action == "save":
-                                    filename = input(
-                                        f"Output filename? Use '.csv' to save as GeoCSV, or '.nc' to output as netCDF [back, exit]: "
+                                subset_action == "save"
+                                if verbose:
+                                    logger.info(
+                                        f"\n\nSave the data\n\tfilename -- filename for saving the file. Its extension determines the file format.\n\tfilename.csv to save as GeoCSV, filename.nc to output as netCDF\n\t{dash}\n\tback - takes you to the previous step\n\texit "
                                     )
-                                    if filename.endswith("csv"):
-                                        meta = lib.get_geocsv_metadata(subset_volume)
-                                        with open(filename, "w") as fp:
-                                            fp.write(meta)
-                                        subset_volume.to_dataframe().to_csv(
-                                            filename, mode="a"
-                                        )
-                                    elif filename.endswith(".nc"):
-                                        subset_volume.to_netcdf(filename, mode="w")
-                                    else:
-                                        logger.error(
-                                            f"[ERR] invalid file type: {filename}"
-                                        )
+                                filename = input(f"Output filename? [back, exit]: ")
+                                # Done, back!
+                                if filename.strip() == "exit":
+                                    sys.exit()
+                                elif filename.strip() == "back":
+                                    break
+                                if filename.endswith(".csv"):
+                                    meta = lib.get_geocsv_metadata(subset_volume)
+                                    with open(filename, "w") as fp:
+                                        fp.write(meta)
+                                    subset_volume.to_dataframe().to_csv(
+                                        filename, mode="a"
+                                    )
+                                    logger.info(f"Saved as {filename}")
+                                elif filename.endswith(".nc"):
+                                    subset_volume.to_netcdf(filename, mode="w")
+                                    logger.info(f"Saved as {filename}")
+                                else:
+                                    logger.error(f"[ERR] invalid file type: {filename}")
                         elif subset_type == "xsection":
                             # A cross-section of the model.
-                            logger.info("\nCoordinates:")
+                            if verbose:
+                                logger.info(
+                                    f"Plotting an interpolated cross-sectional slice through gridded data\nPlease provide the cross-section limits"
+                                )
+                            logger.info("\nThe model coordinate ranges are:")
 
                             for var in ds.coords:
                                 # Cross-sections use geographic coordinates.
@@ -302,13 +342,19 @@ def main():
 
                             # Cross-section interpolation type.
                             interp_type = interpolation_method[0]
-                            interp_type = input(
+                            if verbose:
+                                logger.info(
+                                    f"\n\nSelect the interpolation method for creating the cross-section. The {', '.join(interpolation_method)} methods are available.\n\tPress return to select the default {interp_type} method\n\t{dash}\n\tback - takes you to the previous step\n\texit "
+                                )
+                            _interp_type = input(
                                 f"\nInterpolation Method [{', '.join(interpolation_method+['back', 'exit'])}, default: {interp_type}]? "
                             )
-                            if interp_type.strip() == "exit":
+                            if _interp_type.strip() == "exit":
                                 sys.exit()
-                            elif interp_type.strip() == "back":
+                            elif _interp_type.strip() == "back":
                                 break
+                            elif _interp_type.strip():
+                                interp_type = _interp_type
                             elif interp_type not in (interpolation_method):
                                 logger.warning(
                                     f"[WARN] Invalid interpolation method of {interp_type}. Will use {interpolation_method[0]}"
@@ -317,8 +363,12 @@ def main():
 
                             # Steps in the cross-section.
                             steps = xsection_steps
+                            if verbose:
+                                logger.info(
+                                    f"\n\nThe number of points along the geodesic between the start and the end point (including the end points) to use in the cross section.\n\tPress enter to select the default of 100.\n\t{dash}\n\tback - takes you to the previous step\n\texit "
+                                )
                             steps = input(
-                                f"\nsThe number of points along cross-section ['back', 'exit', default: {steps}]? "
+                                f"\nNumber of points ['back', 'exit', default: {steps}]? "
                             )
                             if not steps.strip():
                                 steps = xsection_steps
@@ -334,7 +384,7 @@ def main():
                             else:
                                 steps = int(steps)
 
-                            # Extract the cross-section.
+                                # Extract the cross-section.
                             xsection_data = cross_section(
                                 plot_data,
                                 start,
@@ -348,6 +398,10 @@ def main():
                             while plot_var:
 
                                 if len(data_var) > 1:
+                                    if verbose:
+                                        logger.info(
+                                            f"\n\nThe model variable to plot.\n\tback - takes you to the previous step\n\texit "
+                                        )
                                     plot_var = input(
                                         f"\nVariable to plot {data_var}, back, exit]: "
                                     )
@@ -370,8 +424,12 @@ def main():
                             # Slice the model.
                             slice_dir = "depth"
                             while slice_dir:
+                                if verbose:
+                                    logger.info(
+                                        f"\nA slice cuts the model along one of the coordinate axis.\n\tdirection - direction of the slice, the coordinate to cut the model along\n\t{dash}\n\tback - takes you to the previous step\n\texit  "
+                                    )
                                 slice_dir = input(
-                                    f"\nSlice direction [{', '.join(main_coordinates+['back', 'exit'])}]? "
+                                    f"\ndirection [{', '.join(main_coordinates+['back', 'exit'])}]? "
                                 )
                                 # Done, back!
                                 if slice_dir.strip() == "exit":
@@ -403,9 +461,7 @@ def main():
                                         coordinate_values[slice_dir],
                                         float(slice_value),
                                     )
-                                    logger.info(
-                                        f"[INFO] Slicing at the closest {slice_dir} of {closest_slice_value}"
-                                    )
+
                                     slice_dims = main_coordinates.copy()
                                     slice_dims.remove(slice_dir)
                                     slice_limits = dict()
@@ -433,10 +489,17 @@ def main():
                                             np.nanmin(ds[dim].data),
                                             np.nanmax(ds[dim].data),
                                         )
+                                        logger.info(
+                                            f"\n\nSlicing at the closest {slice_dir} of {closest_slice_value}"
+                                        )
+
+                                        if verbose:
+                                            logger.info(
+                                                f"\nSelect slice limits in the {dim} direction.\n\tlimits - provide minimum,maximum or press enter to accept the full range default \n\t{dash}\n\tback - takes you to the previous step\n\texit  "
+                                            )
                                         _limits = input(
                                             f"\n{dim} limits [default values { slice_limits[dim]}, back, exit]: "
                                         )
-
                                         # Done, back!
                                         if _limits.strip() == "exit":
                                             sys.exit()
@@ -462,11 +525,21 @@ def main():
                                         slice_limits,
                                     )
                                     logger.info(
-                                        f"[INFO] The sliced data: {sliced_data}"
+                                        f"\n\nThe sliced data summary: \n{sliced_data}"
                                     )
                                     slice_action = "continue"
                                     # Actions.
                                     while slice_action != "back":
+
+                                        if verbose:
+                                            if gmap_option:
+                                                logger.info(
+                                                    f"\nWhat to do with the slice.\n\tplot2d - a 2D plot of {slice_dims}\n\tplot3d - a 3D plot of {slice_dims} and the model variable on the 3rd axis.\n\t\tThe plot is interactive and you can rotate it.\n\tgmap - a 2D plot of {slice_dims} in geographical coordinate system\n\tcmap - change the color map for the plots\n\tsave - save the slice data\n\t{dash} \n\tback - takes you to the previous step\n\texit  "
+                                                )
+                                            else:
+                                                logger.info(
+                                                    f"\nWhat to do with the slice.\n\tplot2d - a 2D plot of {slice_dims}\n\tplot3d - a 3D plot of {slice_dims} and the model variable on the 3rd axis.\n\tThe plot is interactive and you can rotate it.\n\tcmap - change the color map for the plots \n\tsave - save the slice data\n\t{dash}\n\tback - takes you to the previous step\n\texit  "
+                                                )
                                         slice_action = input(
                                             f"\nAction [plot2d, plot3d{gmap_option}, cmap, save, back, exit]: "
                                         )
@@ -586,9 +659,14 @@ def main():
                                             )
                                         # Save the slice data.
                                         elif slice_action == "save":
+                                            if verbose:
+                                                logger.info(
+                                                    f"\n\nSave the data\n\tfilename -- filename for saving the file. Its extension determines the file format.\n\t\tfilename.csv to save as GeoCSV, filename.nc to output as netCDF\n\t{dash}\n\tback - takes you to the previous step\n\texit "
+                                                )
                                             filename = input(
-                                                f"Output filename (use '.csv' to save as GeoCSV, or '.nc' to output as netCDF [back, exit]): "
+                                                f"Output filename? [back, exit]: "
                                             )
+
                                             # Done, back!
                                             if filename.strip() == "exit":
                                                 sys.exit()

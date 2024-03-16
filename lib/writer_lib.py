@@ -19,7 +19,7 @@ import writer_prop as writer_prop
 LIB_DIR = os.path.join(ROOT_DIR, prop.LIB_DIR)
 sys.path.append(LIB_DIR)
 import shared_lib as lib
-from shared_lib import get_param as get_param
+from shared_lib import get_param, get_module_param
 
 logger = lib.get_logger()
 
@@ -33,7 +33,7 @@ def get_repository_info(params, writer_prop):
     """
 
     repository_pid = get_param(params, "repository")
-    repository = get_param(writer_prop, "repository")
+    repository = get_module_param(writer_prop, "repository")
     repository = lib.merge_dictionaries(repository, [repository_pid])
 
     return repository
@@ -46,15 +46,11 @@ def get_model_dictionary(params):
     params -- [required] the parameter module
     """
     model_dict = get_param(params, "model")
-    if "name" not in model_dict:
+    if "model" not in model_dict:
         logger.error(
-            f"[ERR] parameter 'name' is required but it is missing from the model section of the parameter file."
+            f"[ERR] parameter 'model' is required but it is missing from the model section of the parameter file."
         )
         sys.exit(2)
-    else:
-        if "model" not in model_dict:
-            model = model_dict["name"]
-            model_dict = lib.insert_after(model_dict, ("model", model), "name")
 
     model_dict = lib.insert_after(model_dict, ("id", model_dict["model"]), "model")
     return model_dict
@@ -71,7 +67,7 @@ def get_metadata(params):
     metadata_g = dict()
     metadata_v = dict()
     metadata_g["repository"] = get_repository_info(params, writer_prop)
-    metadata_g["conventions"] = get_param(writer_prop, "conventions")
+    metadata_g["conventions"] = get_module_param(writer_prop, "conventions")
     metadata_g["model"] = get_model_dictionary(params)
     metadata_g["geospatial"] = get_param(params, "geospatial")
     # Make sure geospatial min, max, and resolution are float.
@@ -187,7 +183,7 @@ def get_geocsv_metadata(params, metadata_dict, var_dict):
     if len(delimiter) <= 0:
         delimiter = " "
     geocsv_metadata = (
-        f"# dataset: {get_param(writer_prop, 'dataset_version')}\n"
+        f"# dataset: {get_module_param(writer_prop, 'dataset_version')}\n"
         f"# delimiter: {delimiter}"
     )
 
@@ -234,12 +230,26 @@ def write_geocsv_file(df, params, output, metadata_dict, var_dict):
     """
     delimiter = get_param(params, "delimiter")["geocsv"]
     metadata = get_geocsv_metadata(params, metadata_dict, var_dict)
+    var_columns = list()
+    for var in var_dict:
+        if "column" not in var_dict[var]:
+            logger.error(
+                f"[ERR] Could not find 'column' definition for variable {var}."
+            )
+            return "Failed to write the GeoCSV file"
+
+        var_columns.append(var_dict[var]["column"])
+
     geocsv_file = f"{output}.csv"
     with open(geocsv_file, "w") as fp:
         fp.write(f"{metadata}\n")
-    print()
     df.to_csv(
-        geocsv_file, mode="a", sep=delimiter, columns=params.data_columns, index=False
+        geocsv_file,
+        mode="a",
+        na_rep=prop.na_rep,
+        sep=delimiter,
+        columns=var_columns,
+        index=False,
     )
 
     return f"Model GeoCSV file: {geocsv_file}"
@@ -293,8 +303,8 @@ def add_aux_coord_columns(df, coords):
 
         # As a default, variables with float types are attributed a _FillValue of NaN in the output file,
         # unless explicitly disabled with an encoding {'_FillValue': None}.
-        x2.append(round(coords["x2"]["data"][_ix][_iy], fix))
-        y2.append(round(coords["y2"]["data"][_ix][_iy], fix))
+        x2.append(round(coords["x2"]["data"][_iy][_ix], fix))
+        y2.append(round(coords["y2"]["data"][_iy][_ix], fix))
     df[coords["x2"]["var"]] = x2
     df[coords["y2"]["var"]] = y2
 
@@ -325,10 +335,13 @@ def get_coords(df, metadata):
     if metadata["x2"] is not None:
         # Aux data info provided in the data file.
         aux_data = True
-        if metadata["x2"]["column"] is None:
+
+        if (
+            metadata["x2"]["column"].lower() == "none"
+            or len(metadata["x2"]["column"].strip()) <= 0
+        ):
             aux_data = False
-        elif len(metadata["x2"]["column"].strip()) <= 0:
-            aux_data = False
+
         if aux_data:
             coords["x2"] = get_var_from_df(df, metadata, "x2")
             logger.info(
@@ -357,13 +370,13 @@ def get_coords(df, metadata):
             # Set the column for x2 the same as the variable name as it was either None or blank.
             metadata["x2"]["column"] = metadata["x2"]["variable"]
 
-            x2 = np.empty((len(coords["x"]["data"]), len(coords["y"]["data"])))
+            x2 = np.empty((len(coords["y"]["data"]), len(coords["x"]["data"])))
             x2[:] = np.nan
-            y2 = np.empty((len(coords["x"]["data"]), len(coords["y"]["data"])))
+            y2 = np.empty((len(coords["y"]["data"]), len(coords["x"]["data"])))
             y2[:] = np.nan
-            for _xind, _x in enumerate(coords["x"]["data"]):
-                for _yind, _y in enumerate(coords["y"]["data"]):
-                    x2[_xind][_yind], y2[_xind, _yind] = lib.project_lonlat_utm(
+            for _yind, _y in enumerate(coords["y"]["data"]):
+                for _xind, _x in enumerate(coords["x"]["data"]):
+                    x2[_yind][_xind], y2[_yind, _xind] = lib.project_lonlat_utm(
                         _x,
                         _y,
                         metadata["global_attrs"]["utm_zone"],
@@ -498,11 +511,11 @@ def build_xarray_dataframe(data_variables, coords, var_grid, metadata):
                     names1["y"]: coords["y"]["data"],
                     names1["x"]: coords["x"]["data"],
                     names2["x"]: (
-                        (names1["x"], names1["y"]),
+                        (names1["y"], names1["x"]),
                         coords["x2"]["data"],
                     ),
                     names2["y"]: (
-                        (names1["x"], names1["y"]),
+                        (names1["y"], names1["x"]),
                         coords["y2"]["data"],
                     ),
                 },
@@ -516,11 +529,11 @@ def build_xarray_dataframe(data_variables, coords, var_grid, metadata):
                     names1["y"]: coords["y"]["data"],
                     names1["x"]: coords["x"]["data"],
                     names2["x"]: (
-                        (names1["x"], names1["y"]),
+                        (names1["y"], names1["x"]),
                         coords["x2"]["data"],
                     ),
                     names2["y"]: (
-                        (names1["x"], names1["y"]),
+                        (names1["y"], names1["x"]),
                         coords["y2"]["data"],
                     ),
                 },
@@ -619,17 +632,14 @@ def read_csv(
     data_file -- [required] input CSV data file
     mparams -- [required] the parameter module
     """
-    delimiter = params.delimiter["data"].strip()
+    delimiter = params["delimiter"]["data"].strip()
     if len(delimiter) <= 0:
-        # df = pandas.read_csv(data_file, delim_whitespace=True)
         df = pandas.concat(
             [
                 chunk
                 for chunk in tqdm(
                     pandas.read_csv(
-                        data_file,
-                        chunksize=writer_prop.read_chunk_size,
-                        delim_whitespace=True,
+                        data_file, chunksize=writer_prop.read_chunk_size, sep="\s+"
                     ),
                     desc="...loading data",
                 )
