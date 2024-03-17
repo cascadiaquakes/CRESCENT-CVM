@@ -1,6 +1,7 @@
 import os
 import sys
 import xarray as xr
+import numpy as np
 
 
 # Get the root _directory.
@@ -60,6 +61,37 @@ def netcdf_to_geocsv(
     data = df.to_csv(sep=prop.delimiter, na_rep=prop.na_rep)
 
     return metadata, data
+
+
+# Convert dataset attributes to JSON, handling non-serializable values
+def convert_to_json_safe(obj):
+    if isinstance(obj, (np.integer, np.floating, np.bool_)):
+        return obj.item()
+    elif isinstance(obj, np.ndarray):
+        return obj.tolist()
+    else:
+        return obj
+
+
+# Output metadata as JSON.
+def json_metadata(input_file):
+    with xr.open_dataset(input_file) as ds:
+        metadata_json = {
+            key: convert_to_json_safe(value) for key, value in ds.attrs.items()
+        }
+
+        # Include variable attributes
+        variables_json = {}
+        for var_name, var in ds.variables.items():
+            var_attrs = {
+                key: convert_to_json_safe(value) for key, value in var.attrs.items()
+            }
+            variables_json[var_name] = var_attrs
+
+        # Combine dataset and variable attributes
+        output_json = lib.merge_dictionaries(metadata_json, [variables_json])
+
+    return output_json
 
 
 def geocsv_to_netcdf(
