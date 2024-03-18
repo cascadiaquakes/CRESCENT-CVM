@@ -34,8 +34,8 @@ def usage():
         f"""
     Script to plot a simple depth slice from a given netCDF model file. It expects to find the 
     plotter property file (simple_plotter_prop.py) under the working directory.
-        -m, --model  [default: {prop.filename}] model filename
-        -d, --depth  [default: {prop.depth}] slice depth
+        -i, --input  [default: {prop.filename}] model filename
+        -z, --depth  [default: {prop.depth}] slice depth
         -v, --variable [default: {prop.variable}] the variable to plot
         """
     )
@@ -45,7 +45,7 @@ def usage():
 try:
     argv = sys.argv[1:]
     opts, args = getopt.getopt(
-        argv, "hm:d:v:", ["help", "model=", "depth=", "variable="]
+        argv, "hi:z:v:", ["help", "input=", "depth=", "variable="]
     )
 except getopt.GetoptError as err:
     # Print the error, and help information and exit:
@@ -57,13 +57,13 @@ for o, a in opts:
     if o in ("-h", "--help"):
         usage()
         sys.exit(0)
-    elif o in ("-m", "--model"):
+    elif o in ("-i", "--input"):
         filename = a
         if not os.path.isfile(filename):
             usage()
             logger.error(f"[ERR] Could not find the input file: {filename}")
             sys.exit(1)
-    elif o in ("-d", "--depth"):
+    elif o in ("-z", "--depth"):
         try:
             depth = float(a)
         except Exception as ex:
@@ -96,6 +96,11 @@ ds = xr.open_dataset(filename)
 logger.info(f"\n\n\n{filename} dataset content:\n{divider}\n{ds}")
 
 # Extract the designated variable's dataset and display its content.
+if variable not in ds:
+    logger.error(
+        f"[ERR] No variable named '{variable}'. Variables on the dataset include {list(ds.keys())}"
+    )
+    sys.exit(2)
 ds_var = ds[variable]
 logger.info(f"\n\n{variable} variable's dataset content:\n{divider}\n{ds_var}")
 

@@ -124,7 +124,7 @@ def cf_coordinate_names(x,y, aux=False):
         raise
 
 
-def get_geocsv_metadata(ds):
+def get_geocsv_metadata_from_ds(ds):
     """Compose GeoCSV style metadata for a given Dataset.
 
     Keyword arguments:

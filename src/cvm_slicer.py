@@ -153,7 +153,7 @@ def main():
             while option != "exit":
                 if verbose:
                     logger.info(
-                        f"\n\nThe available options are:\n\tmeta - to view file's metadata\n\tranges - to display ranges for variables\n\tsubset - to subset the data\n\t{dash}\n\thelp\n\texit "
+                        f"\n\nThe available options are:\n\tmeta - to view file's metadata\n\tranges - to display value ranges for variables\n\tsubset - to subset the data\n\t{dash}\n\thelp\n\texit "
                     )
                 option = input("select option [meta, ranges, subset, help, exit]? ")
 
@@ -197,7 +197,7 @@ def main():
                         # f"\nSubset type [volume, slice, xsection, back, exit]? "
                         if verbose:
                             logger.info(
-                                f"\n\nYou can subset the data as:\n\tvolume - a subvolume of data\n\tslice - a slice along a coordinate axis\n\txsection - a vertical slice in an arbitrary direction\n\t{dash}\n\tback - takes you to the previous step\n\texit "
+                                f"\n\nYou can subset the data as a:\n\tvolume - a subvolume of data\n\tslice - a slice along a coordinate axis\n\txsection - a vertical slice in an arbitrary direction\n\t{dash}\n\tback - takes you to the previous step\n\texit "
                             )
                         subset_type = input(
                             f"\nselect [volume, slice, xsection, back, exit]? "
@@ -261,7 +261,9 @@ def main():
                                 elif filename.strip() == "back":
                                     break
                                 if filename.endswith(".csv"):
-                                    meta = lib.get_geocsv_metadata(subset_volume)
+                                    meta = lib.get_geocsv_metadata_from_ds(
+                                        subset_volume
+                                    )
                                     with open(filename, "w") as fp:
                                         fp.write(meta)
                                     subset_volume.to_dataframe().to_csv(
@@ -279,7 +281,9 @@ def main():
                                 logger.info(
                                     f"Plotting an interpolated cross-sectional slice through gridded data\nPlease provide the cross-section limits"
                                 )
-                            logger.info("\nThe model coordinate ranges are:")
+                            logger.info(
+                                "\nThe model coordinate ranges for the cross-section are:"
+                            )
 
                             for var in ds.coords:
                                 # Cross-sections use geographic coordinates.
@@ -534,11 +538,11 @@ def main():
                                         if verbose:
                                             if gmap_option:
                                                 logger.info(
-                                                    f"\nWhat to do with the slice.\n\tplot2d - a 2D plot of {slice_dims}\n\tplot3d - a 3D plot of {slice_dims} and the model variable on the 3rd axis.\n\t\tThe plot is interactive and you can rotate it.\n\tgmap - a 2D plot of {slice_dims} in geographical coordinate system\n\tcmap - change the color map for the plots\n\tsave - save the slice data\n\t{dash} \n\tback - takes you to the previous step\n\texit  "
+                                                    f"\nWhat to do with the slice.\n\tplot2d - a 2D plot of {slice_dims}\n\tplot3d - a 3D plot of {slice_dims} and the model variable on the 3rd axis.\n\t\tThe plot is interactive and can be rotated.\n\tgmap - a 2D plot of {slice_dims} in geographical coordinate system\n\tcmap - change the color map for the plots\n\tsave - save the slice data\n\t{dash} \n\tback - takes you to the previous step\n\texit  "
                                                 )
                                             else:
                                                 logger.info(
-                                                    f"\nWhat to do with the slice.\n\tplot2d - a 2D plot of {slice_dims}\n\tplot3d - a 3D plot of {slice_dims} and the model variable on the 3rd axis.\n\tThe plot is interactive and you can rotate it.\n\tcmap - change the color map for the plots \n\tsave - save the slice data\n\t{dash}\n\tback - takes you to the previous step\n\texit  "
+                                                    f"\nWhat to do with the slice.\n\tplot2d - a 2D plot of {slice_dims}\n\tplot3d - a 3D plot of {slice_dims} and the model variable on the 3rd axis.\n\tThe plot is interactive and can be rotated.\n\tcmap - change the color map for the plots \n\tsave - save the slice data\n\t{dash}\n\tback - takes you to the previous step\n\texit  "
                                                 )
                                         slice_action = input(
                                             f"\nAction [plot2d, plot3d{gmap_option}, cmap, save, back, exit]: "
@@ -676,7 +680,7 @@ def main():
                                             ):
                                                 break
                                             elif filename.endswith(".csv"):
-                                                meta = lib.get_geocsv_metadata(
+                                                meta = lib.get_geocsv_metadata_from_ds(
                                                     sliced_data
                                                 )
                                                 with open(filename, "w") as fp:

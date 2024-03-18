@@ -117,15 +117,19 @@ def main():
         logger.info(f"[INFO] {input_file} is a netCDF file")
         # Convert netCDF to GeoCSV.
         if do_geocsv:
+            geocsv_file = f"{output_file}{prop.extension['geocsv']}"
             metadata, data = convert_lib.netcdf_to_geocsv(input_file)
-            with open(f"{output_file}{prop.extension['geocsv']}", "w") as outfile:
+            with open(geocsv_file, "w") as outfile:
                 outfile.write(f"{metadata}\n{data}")
+            logger.info(f"[INFO] Saved the GeoCSV file: {geocsv_file}")
 
         # Save metadata as JSON
         if do_metadata:
             output_json = convert_lib.json_metadata(input_file)
-            with open(f"{output_file}{prop.extension['json']}", "w") as outfile:
+            json_file = f"{output_file}{prop.extension['json']}"
+            with open(json_file, "w") as outfile:
                 outfile.write(f"{json.dumps(output_json, indent=4)}")
+            logger.info(f"[INFO] Saved the JSON metadata file: {json_file}")
     else:
         logger.error(f"[ERR] {input_file} is not a valid netCDF file")
         sys.exit(1)

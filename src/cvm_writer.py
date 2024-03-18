@@ -109,7 +109,7 @@ def main():
         sys.exit(1)
 
     # Data file is required.
-    if data_file is None:
+    if data_file is None and ("netcdf" in output_types or "geocsv" in output_types):
         usage()
         logger.error(f"[ERR] data file is required.")
         sys.exit(1)
@@ -144,22 +144,6 @@ def main():
 
     # Initialize the timer.
     t0 = time.time()
-
-    # Metadata outputs, if requested.
-    if "metadata" in output_types:
-        # Write metadata as JSON.
-        message = meta_lib.write_json_metadata(
-            f"{output}_metadata", metadata_dict, var_dict, data_variables
-        )
-        t0, time_txt = lib.time_it(t0)
-        logger.info(f"[{time_txt}] {message}")
-
-        # Write metadata as GeoCSV.
-        message = meta_lib.write_geocsv_metadata(
-            params, f"{output}_metadata", metadata_dict, var_dict
-        )
-        t0, time_txt = lib.time_it(t0)
-        logger.info(f"[{time_txt}] {message}")
 
     # NetCDF or geocsv model files requested?
     if "netcdf" in output_types or "geocsv" in output_types:
@@ -227,6 +211,30 @@ def main():
                 )
                 t0, time_txt = lib.time_it(t0)
                 logger.info(f"[{time_txt}] {message}")
+
+    # Metadata outputs, if requested.
+    if "metadata" in output_types:
+        # Write metadata as JSON.
+        vars = var_dict.copy()
+
+        # Make sure the column fields are populated.
+        for _var in vars:
+            if "column" in vars[_var].keys():
+                if not vars[_var]["column"].strip():
+                    vars[_var]["column"] = vars[_var]["variable"]
+
+        message = meta_lib.write_json_metadata(
+            f"{output}_metadata", metadata_dict, vars, data_variables
+        )
+        t0, time_txt = lib.time_it(t0)
+        logger.info(f"[{time_txt}] {message}")
+
+        # Write metadata as GeoCSV.
+        message = meta_lib.write_geocsv_metadata(
+            params, f"{output}_metadata", metadata_dict, vars
+        )
+        t0, time_txt = lib.time_it(t0)
+        logger.info(f"[{time_txt}] {message}")
 
 
 if __name__ == "__main__":

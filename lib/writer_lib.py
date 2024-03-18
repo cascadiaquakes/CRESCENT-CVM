@@ -157,10 +157,13 @@ def write_json_metadata(output, metadata_dict, var_dict, data_variables):
     Keyword arguments:
     output -- [required] the output filename
     metadata_dict -- [required] metadata dictionary
+    variables_dict -- [required] variables dictionary
+    data_variables -- [required] data variables dictionary
     """
     json_file = f"{output}.json"
     metadata_dict["variables"] = var_dict
     metadata_dict["data_vars"] = data_variables
+
     with open(json_file, "w") as fp:
         json.dump(metadata_dict, fp, indent=writer_prop.json_indent)
 
@@ -594,13 +597,19 @@ def build_xarray_dataset(xr_df, coords, metadata):
     )
 
     for _var in coords:
+
+        """
         var = _var
         # For x & y dimensions we use x and y, unless they are lat/lon.
         if _var not in ("x", "y", "x2", "y2", "z"):
             var = _var
         else:
             var = coords[_var]["var"]
-        ds[var].attrs = netcdf_attrs(metadata, _var)
+        """
+        if _var in ds:
+            ds[_var].attrs = netcdf_attrs(metadata, _var)
+        else:
+            ds[coords[_var]["var"]].attrs = netcdf_attrs(metadata, _var)
     return ds
 
 
