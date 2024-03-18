@@ -89,8 +89,12 @@ The following velocity sample models are provided under the _sample-files_ direc
 8. To look at the netCDF file content, you will find a simple plotting script under the _src_ directory (_src/simple_plotter.py_)
    Again, use _-h_ flag to get the usage message. This simple plotter code reads the netCDF file, prints information on the data, extracts a depth slice and
    displays it in geographic and UTM coordinates. It also extracts a small piece of the depth slice and plots it again. To run the plotter script against the netCDF file you created, run<br />
+
+   **NOTE**: The **simple_plotter** tool expects a python configuration file containing the model default plot values in the same directory where you are running the simple plotter tool. You can download a template from the template directory.
+
    **../../src/simple_plotter.py -i Cascadia-ANT+RF-test.nc**
    <br />As you run this command, the model information is outputted to the terminal and a slice at the depth of 20 km is plotted. By closing this plot, another plot shows the same slice using the UTM coordinates. Finally, by closing the plot you get a plot of the upper right section of the area.
+
 9. Look ate the model information printed to your terminal. It includes depth information. Select another depth (for example 78km).
    Now run the same command but tell it to plot the slice for the depth of 78 km:
    <br />**../../src/simple_plotter.py -i Cascadia-ANT+RF-test.nc -z 78**

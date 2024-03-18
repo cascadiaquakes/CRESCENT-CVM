@@ -13,14 +13,24 @@ sys.path.append(LIB_DIR)
 import shared_lib as lib
 
 sys.path.append(os.getcwd())
-import simple_plotter_prop as prop
+
+divider = 80 * "="
+logger = lib.get_logger()
+
+try:
+    import simple_plotter_prop as prop
+except Exception as ex:
+    logger.error(
+        f"\n\n[ERR] Failed to load the required configuration file \n"
+        f"from the current directory. Please see the template \n"
+        f"directory for a sample simple_plotter_prop.py configuration file\n"
+    )
+    sys.exit(2)
 
 """A simple Python code to demonstrate the ease of access Xarray offers
 for working the CVM files in netCDF format.
 """
 
-divider = 80 * "="
-logger = lib.get_logger()
 
 # Initialize the variables.
 filename = prop.filename
