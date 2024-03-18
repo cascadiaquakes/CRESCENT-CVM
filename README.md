@@ -168,6 +168,7 @@ This package contains the following files:
     template/
         metadata_template.txt            -- Model metadata template
         metadata_template_detailed.txt   -- Model metadata template with variables described
+        simple_plotter_prop.py        -- The simple_plotter configuration file
 
 ## Citation
 
