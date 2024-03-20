@@ -25,22 +25,22 @@ def get_key_value(line):
 
     Keyword arguments:
     line -- [required] a single input line.
-    """    
+    """
 
     line = line.strip()
     line_type = None
     key = None
     value = None
     if not line or line.startswith("#"):
-        return line_type,key,value
+        return line_type, key, value
 
     # This is really checking for either > or >>.
     if "=" not in line and line[0] != ">":
-         logging.error(f"[ERR] did not find '=' in: {line}")
-         sys.exit(2)
+        logging.error(f"[ERR] did not find '=' in: {line}")
+        sys.exit(2)
 
     if line[0] not in (">>", ">", "-"):
-         line_type = ">>>"
+        line_type = ">>>"
     elif line.startswith(">>"):
         line_type = line[0:2]
         line = line[2:].strip()
@@ -49,8 +49,8 @@ def get_key_value(line):
         line = line[1:].strip()
 
     if line_type not in ("-", ">", ">>") and "=" not in line:
-         logging.error(f"[ERR] did not find '=' in: {line}")
-         sys.exit(2)
+        logging.error(f"[ERR] did not find '=' in: {line}")
+        sys.exit(2)
 
     if line_type in (">", ">>"):
         key = line.strip()
@@ -60,16 +60,16 @@ def get_key_value(line):
         key = key.strip()
         value = value.strip()
 
-    return line_type,key,value
+    return line_type, key, value
 
 
 def read_model_metadata(model_file):
     """Get model parameters from a parameter file and convert it to a dictionary.
 
     Keyword arguments:
-    model_file -- [required] the model metadata file 
-    """   
-    with open (model_file, "r") as fp:
+    model_file -- [required] the model metadata file
+    """
+    with open(model_file, "r") as fp:
         data = fp.read()
         lines = data.split("\n")
         params = dict()
@@ -103,24 +103,26 @@ def read_model_metadata(model_file):
                 params[key] = value
 
     return params
-    
 
-def cf_coordinate_names(x,y, aux=False):
+
+def cf_coordinate_names(x, y, aux=False):
     """Produce CF standard coordinate variable names.
 
     Keyword arguments:
     x -- [required] the current x-coordinate variable name
     y -- [required] the current y-coordinate variable name
     aux -- [default=False] flag to indicate if these variables are for the auxiliary coordinates.
-    """    
+    """
     if x.lower() == "longitude" and y.lower() == "latitude":
-        return {"x": "longitude", "y":"latitude"}
+        return {"x": "longitude", "y": "latitude"}
     elif aux:
         return {"x": x, "y": y}
     elif x.lower() != "longitude" and y.lower() != "latitude":
         return {"x": "x", "y": "y"}
     else:
-        logging.error(f"[cf_coordinate_names ERR] invalid coordinate name combinations ({x},{y})")
+        logging.error(
+            f"[cf_coordinate_names ERR] invalid coordinate name combinations ({x},{y})"
+        )
         raise
 
 
@@ -148,7 +150,8 @@ def get_geocsv_metadata_from_ds(ds):
             if att == "variable":
                 geocsv_metadata.append(f"# {var}_dimensions: {len(ds[var].dims)}")
                 geocsv_metadata.append(f"# {var}_column: {var}")
-    metadata = f'{"\n".join(geocsv_metadata)}\n'
+    metadata = "\n".join(geocsv_metadata)
+    metadata = f"{metadata}\n"
     return metadata
 
 
@@ -393,6 +396,7 @@ def get_param(params, var, required=True):
             return None
 
     return params[var]
+
 
 def merge_dictionaries(parent_dict, dict_list):
     """Merge a list of dictionaries to the parent dictionary using update() method.
