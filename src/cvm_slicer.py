@@ -293,14 +293,33 @@ def main():
                                     )
                             start = slicer_lib.get_point("start")
                             if start == "back":
+                                subset_type = "back"
                                 break
                             end = slicer_lib.get_point("end")
                             if end == "back":
+                                subset_type = "back"
                                 break
                             depth = slicer_lib.get_point("depth")
-                            if depth == "break":
+                            if depth == "back":
+                                subset_type = "back"
                                 break
+
+                            try:
+                                depth = [
+                                    min(float(depth[0]), float(depth[1])),
+                                    max(float(depth[0]), float(depth[1])),
+                                ]
+                            except Exception as ex:
+                                logger.error(f"[ERR] Bad depth values {depth}\n{ex}")
+                                subset_type = "back"
+                                break
+
                             plot_data = ds.copy()
+                            plot_data = plot_data.where(
+                                (plot_data.depth >= float(depth[0]))
+                                & (plot_data.depth <= float(depth[1])),
+                                drop=True,
+                            )
                             utm_zone = None
                             meta = ds.attrs
                             if "grid_mapping_name" not in meta:
@@ -450,6 +469,7 @@ def main():
                                     slice_value = input(
                                         f"\nslice {slice_dir} [{np.nanmin(ds[slice_dir].data)} to {np.nanmax(ds[slice_dir].data)}, back, exit]? "
                                     )
+
                                     # Exit.
                                     if slice_value.strip() == "exit":
                                         sys.exit()
@@ -459,11 +479,19 @@ def main():
                                         or not slice_value.strip()
                                     ):
                                         break
+                                    else:
+                                        try:
+                                            slice_value = float(slice_value)
+                                        except Exception as ex:
+                                            logger.error(
+                                                f"[ERR] invalid value {slice_value}\n{ex}"
+                                            )
+                                            break
                                     # Actions.
                                     # while slice_value:
                                     closest_slice_value = lib.closest(
                                         coordinate_values[slice_dir],
-                                        float(slice_value),
+                                        slice_value,
                                     )
 
                                     slice_dims = main_coordinates.copy()
@@ -517,11 +545,26 @@ def main():
 
                                         if _limits:
                                             values = _limits.split(",")
-                                            slice_limits[dim] = (
-                                                float(values[0]),
-                                                float(values[1]),
-                                            )
+                                            try:
+                                                slice_limits[dim] = (
+                                                    min(
+                                                        float(values[0]),
+                                                        float(values[1]),
+                                                    ),
+                                                    max(
+                                                        float(values[0]),
+                                                        float(values[1]),
+                                                    ),
+                                                )
+                                            except Exception as ex:
+                                                logger.error(
+                                                    f"[ERR] Invalid limits {_limits}.\n{ex}"
+                                                )
+                                                slice_dir = ""
+                                                break
                                     # Slice the data.
+                                    if not slice_dir:
+                                        break
                                     sliced_data = slicer_lib.slicer(
                                         ds,
                                         slice_dir,

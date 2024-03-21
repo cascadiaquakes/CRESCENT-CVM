@@ -53,9 +53,15 @@ def get_point(location):
                 )
             point = None
         else:
-            point = point.split(",")
-            point = [float(i) for i in point]
-            break
+            try:
+                point = point.split(",")
+                point = [float(i) for i in point]
+                break
+            except Exception as ex:
+                logger.error(
+                    f"[ERR] invalid {location} range '{point}' input {location} as value1,value2\n{ex}"
+                )
+            point = None
     return point
 
 
