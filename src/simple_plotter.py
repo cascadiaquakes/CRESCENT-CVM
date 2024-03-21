@@ -115,7 +115,13 @@ ds_var = ds[variable]
 logger.info(f"\n\n{variable} variable's dataset content:\n{divider}\n{ds_var}")
 
 # Extract the horizontal (depth) slice for the give depth.
-ds_var_depth = ds_var.where(ds_var.depth == depth, drop=True)
+closest_slice_value = lib.closest(
+    ds_var.depth.data,
+    float(depth),
+)
+
+logger.info(f"[INFO] extracting the closest depth of {closest_slice_value}")
+ds_var_depth = ds_var.where(ds_var.depth == closest_slice_value, drop=True)
 ds_var_depth.plot(figsize=figure_size, cmap=cmap, vmin=vmin, vmax=vmax)
 plt.show()
 
@@ -126,9 +132,10 @@ ds_var_depth.plot(
 plt.show()
 
 
-# extract the uper right portion of the slice.
+# extract the upper right portion of the slice.
 ds_var_depth_ur = ds_var.where(
-    (ds_var.depth == depth) & (ds_var[x] >= x_min) & (ds_var[y] >= y_min), drop=True
+    (ds_var.depth == closest_slice_value) & (ds_var[x] >= x_min) & (ds_var[y] >= y_min),
+    drop=True,
 )
 ds_var_depth_ur.plot(figsize=figure_size_s, cmap=cmap, vmin=vmin, vmax=vmax)
 plt.show()
