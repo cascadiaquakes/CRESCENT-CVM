@@ -97,12 +97,12 @@
 #    geospatial_vertical_units: Variable's units
 
 > geospatial
-    geospatial_lon_min = -122
-    geospatial_lon_max = -117.0
+    geospatial_lon_min = -130.1
+    geospatial_lon_max = -121.0
     geospatial_on_units = degrees_east
     geospatial_on_resolution = 1
-    geospatial_lat_min = 40
-    geospatial_lat_max = 50
+    geospatial_lat_min = 40.2
+    geospatial_lat_max = 50.0
     geospatial_lat_units = degrees_north
     geospatial_lat_resolution = 1
     geospatial_vertical_min = 0
