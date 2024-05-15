@@ -135,7 +135,7 @@ def subsetter(ds, limits):
     return sliced_data
 
 
-def gmap(plot_var, cmap, gmap_limits, sliced_data):
+def gmap(plot_var, cmap, gmap_limits, sliced_data, vmin=None, vmax=None):
     """
     Geographical display of a dataset.
 
@@ -165,15 +165,27 @@ def gmap(plot_var, cmap, gmap_limits, sliced_data):
     )
 
     # Plotting using Matplotlib
-    cf = sliced_data[plot_var].plot(
-        x="longitude",
-        y="latitude",
-        transform=ccrs.PlateCarree(),
-        cmap=color,
-        add_colorbar=True,
-    )
+    if vmin and vmax:
+        cf = sliced_data[plot_var].plot(
+            x="longitude",
+            y="latitude",
+            transform=ccrs.PlateCarree(),
+            cmap=color,
+            add_colorbar=True,
+            vmin=vmin,
+            vmax=vmax,
+        )
+    else:
+        cf = sliced_data[plot_var].plot(
+            x="longitude",
+            y="latitude",
+            transform=ccrs.PlateCarree(),
+            cmap=color,
+            add_colorbar=True,
+        )
 
     # Plot lat/lon grid
+
     gl = ax.gridlines(
         crs=ccrs.PlateCarree(),
         draw_labels=True,

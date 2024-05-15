@@ -3,6 +3,7 @@
 import sys
 import os
 import getopt
+import traceback
 from pathlib import Path
 import xarray as xr
 import numpy as np
@@ -407,14 +408,19 @@ def main():
                             else:
                                 steps = int(steps)
 
-                                # Extract the cross-section.
-                            xsection_data = cross_section(
-                                plot_data,
-                                start,
-                                end,
-                                steps=steps,
-                                interp_type=interp_type,
-                            )
+                            # Extract the cross-section.
+                            try:
+                                xsection_data = cross_section(
+                                    plot_data,
+                                    start,
+                                    end,
+                                    steps=steps,
+                                    interp_type=interp_type,
+                                )
+                            except Exception as ex:
+                                message = f"[ERR] cross_section failed: {ex}\n{traceback.print_exc()}"
+                                logger.error(message)
+                                break
 
                             # Iterate through the model variables and plot each cross-section.
                             plot_var = data_var[0]
@@ -439,7 +445,12 @@ def main():
                                 pdata = xsection_data.copy()
                                 pdata["depth"] = -pdata["depth"]
 
-                                pdata[plot_var].plot.contourf(cmap=cmap)
+                                if vmin and vmax:
+                                    pdata[plot_var].plot.contourf(cmap=cmap, vmin=vmin, vmax=vmax)
+                                else:
+                                       pdata[plot_var].plot.contourf(
+                                    cmap=cmap,
+                                )
                                 plt.show()
                                 break
 
@@ -576,16 +587,18 @@ def main():
                                     )
                                     slice_action = "continue"
                                     # Actions.
+                                    vmin = None
+                                    vmax = None
                                     while slice_action != "back":
 
                                         if verbose:
                                             if gmap_option:
                                                 logger.info(
-                                                    f"\nWhat to do with the slice.\n\tplot2d - a 2D plot of {slice_dims}\n\tplot3d - a 3D plot of {slice_dims} and the model variable on the 3rd axis.\n\t\tThe plot is interactive and can be rotated.\n\tgmap - a 2D plot of {slice_dims} in geographical coordinate system\n\tcmap - change the color map for the plots\n\tsave - save the slice data\n\t{dash} \n\tback - takes you to the previous step\n\texit  "
+                                                    f"\nWhat to do with the slice.\n\tplot2d - a 2D plot of {slice_dims}\n\tplot3d - a 3D plot of {slice_dims} and the model variable on the 3rd axis.\n\t\tThe plot is interactive and can be rotated.\n\tgmap - a 2D plot of {slice_dims} in geographical coordinate system\n\tChange the colormap for the plots. You can also provide cmap, vmin, and vmax, with vmin and vmax defining the minimum and maximum values for the colormap.\n\tsave - save the slice data\n\t{dash} \n\tback - takes you to the previous step\n\texit  "
                                                 )
                                             else:
                                                 logger.info(
-                                                    f"\nWhat to do with the slice.\n\tplot2d - a 2D plot of {slice_dims}\n\tplot3d - a 3D plot of {slice_dims} and the model variable on the 3rd axis.\n\tThe plot is interactive and can be rotated.\n\tcmap - change the color map for the plots \n\tsave - save the slice data\n\t{dash}\n\tback - takes you to the previous step\n\texit  "
+                                                    f"\nWhat to do with the slice.\n\tplot2d - a 2D plot of {slice_dims}\n\tplot3d - a 3D plot of {slice_dims} and the model variable on the 3rd axis.\n\tThe plot is interactive and can be rotated.\n\tcmap - change the color map for the plots (NOTE: You may also provide cmap,vmin,vmax)\n\tsave - save the slice data\n\t{dash}\n\tback - takes you to the previous step\n\texit  "
                                                 )
                                         slice_action = input(
                                             f"\nAction [plot2d, plot3d{gmap_option}, cmap, save, back, exit]: "
@@ -636,8 +649,10 @@ def main():
                                                             plot_data["depth"] = (
                                                                 -plot_data["depth"]
                                                             )
-
-                                                plot_data.plot(cmap=cmap)
+                                                if vmin and vmax:
+                                                    plot_data.plot(cmap=cmap, vmin=vmin, vmax=vmax)
+                                                else:
+                                                     plot_data.plot(cmap=cmap)
                                                 plt.show()
                                                 if len(data_var) <= 1:
                                                     plot_var = "back"
@@ -663,7 +678,10 @@ def main():
                                                     )
                                                     continue
 
-                                                sliced_data[plot_var].plot.surface(
+                                                if vmin and vmax:
+                                                    sliced_data[plot_var].plot.surface(cmap=cmap, vmin=vmin, vmax=vmax)
+                                                else:
+                                                     sliced_data[plot_var].plot.surface(
                                                     cmap=cmap,
                                                 )
                                                 plt.show()
@@ -695,6 +713,7 @@ def main():
                                                     cmap,
                                                     gmap_limits,
                                                     sliced_data,
+                                                    vmin=vmin, vmax=vmax,
                                                 )
                                                 if len(data_var) <= 1:
                                                     plot_var = "back"
@@ -702,8 +721,33 @@ def main():
                                         elif slice_action == "cmap":
                                             logger.info(f"\n[cmaps] {plt.colormaps()}")
                                             cmap = input(
-                                                f"\nSelect a color map for the plot [default cmap {cmap}, back, exit]: "
+                                                f"\nSelect a color map for the plot [default cmap {cmap} (NOTE: You may also provide cmap,vmin,vmax), back, exit]: "
                                             )
+                                            items = cmap.split(",")
+                                            if len(items) == 1:
+                                                cmap = items[0]
+                                                if cmap not in plt.colormaps():
+                                                    logger.error(
+                                                        f"[ERR] invalid cmap: {cmap}"
+                                                    )
+                                                    break
+                                                    
+                                            elif len(items) == 3:
+                                                cmap = items[0]
+                                                if cmap not in plt.colormaps():
+                                                    logger.error(
+                                                        f"[ERR] invalid cmap: {cmap}"
+                                                    )
+                                                    break
+                                                vmin = float(items[1])
+                                                vmax = float(items[2])
+                                                logger.info(f"[INFO] CMAP:{cmap}, vmin:{vmin}, vmax:{vmax}")
+                                            else:
+                                                cmap = prop.cmap
+                                                logger.error(
+                                                    f"[ERR] invalid cmap: {",".join(items)}"
+                                                )
+                                                break
                                         # Save the slice data.
                                         elif slice_action == "save":
                                             if verbose:
