@@ -192,6 +192,49 @@ def view_list(lst, indent=14, chunk=20):
     print(file.getvalue().replace("]", " ").replace("[", " "))
 
 
+def standard_units(unit):
+    """Check an input unit and return the corresponding standard unit."""
+    unit = unit.strip().lower()
+    if unit in ["m", "meter"]:
+        return "m"
+    elif unit in ["degrees", "degrees_east", "degrees_north"]:
+        return "degrees"
+    elif unit in ["km", "kilometer"]:
+        return "km"
+    elif unit in ["g/cc", "g/cm3", "g.cm-3", "grams.centimeter-3"]:
+        return "g/cc"
+    elif unit in ["kg/m3", "kh.m-3"]:
+        return "kg/m3"
+    elif unit in ["km/s", "kilometer/second", "km.s-1", "kilometer/s", "km/s"]:
+        return "km/s"
+    elif unit in ["m/s", "meter/second", "m.s-1", "meter/s", "m/s"]:
+        return "m/s"
+    elif unit.strip().lower in ["", "none"]:
+        return ""
+
+
+def is_numeric(in_string):
+    """Checks an input string to make sure it only contains numeric characters"""
+    return in_string.replace(".", "").replace("-", "").strip().isnumeric()
+
+
+def is_in_range(value, value_type):
+    """Checks a  value to make sure it is in range for the given value_type."""
+    value_ranges = {"latitude": [-90.0, 90.0], "longitude": [-180.0, 180.0]}
+
+    # Values without defined ranges are only checked for being a valid number.
+    if value_type not in value_ranges:
+        return is_numeric(f"{value}")
+    else:
+        # Make sure the value is a number.
+        if not is_numeric(f"{value}"):
+            return False
+        else:
+            range = value_ranges[value_type]
+
+            return range[0] <= float(value) <= range[1]
+
+
 def closest(lst, value):
     """Find the closest number in a list to the given value
 

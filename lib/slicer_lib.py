@@ -3,6 +3,12 @@ import sys
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
 from cartopy.mpl.gridliner import LONGITUDE_FORMATTER, LATITUDE_FORMATTER
+import numpy as np
+import xarray as xr
+
+import warnings
+
+warnings.filterwarnings("ignore")
 
 import matplotlib.pyplot as plt
 
@@ -56,7 +62,14 @@ def get_point(location):
             try:
                 point = point.split(",")
                 point = [float(i) for i in point]
-                break
+                if lib.is_in_range(point[0], "latitude") and lib.is_in_range(
+                    point[1], "longitude"
+                ):
+                    break
+                logger.error(
+                    f"[ERR] invalid latitude,longitude pair: {point[0]},{point[1]}"
+                )
+                point = None
             except Exception as ex:
                 logger.error(
                     f"[ERR] invalid {location} range '{point}' input {location} as value1,value2\n{ex}"
@@ -120,18 +133,34 @@ def subsetter(ds, limits):
         ds - [required] the xarray dataset
         limits - [required] limits of the volume in all directions.
     """
-    limits_keys = list(limits.keys())
-    limits_values = list(limits.values())
-
+    geospatial_dict = {
+        "latitude": ["geospatial_lat_min", "geospatial_lat_max"],
+        "longitude": ["geospatial_lon_min", "geospatial_lon_max"],
+        "depth": ["geospatial_vertical_min", "geospatial_vertical_max"],
+    }
+    limit_keys = list(limits.keys())
+    limit_values = list(limits.values())
     sliced_data = ds.where(
-        (ds[limits_keys[0]] >= limits_values[0][0])
-        & (ds[limits_keys[0]] <= limits_values[0][1])
-        & (ds[limits_keys[1]] >= limits_values[1][0])
-        & (ds[limits_keys[1]] <= limits_values[1][1])
-        & (ds[limits_keys[2]] >= limits_values[2][0])
-        & (ds[limits_keys[2]] <= limits_values[2][1]),
-        drop=True,
+        (ds[limit_keys[0]] >= limit_values[0][0])
+        & (ds[limit_keys[0]] <= limit_values[0][1])
+        & (ds[limit_keys[1]] >= limit_values[1][0])
+        & (ds[limit_keys[1]] <= limit_values[1][1])
+        & (ds[limit_keys[2]] >= limit_values[2][0])
+        & (ds[limit_keys[2]] <= limit_values[2][1])
     )
+
+    for dim in limit_keys:
+        if dim in geospatial_dict:
+            #  The dropna method is used to remove coordinates with all NaN values along the specified dimensions
+            sliced_data = sliced_data.dropna(dim=dim, how="all")
+            if geospatial_dict[dim][0] in sliced_data.attrs:
+                sliced_data.attrs[geospatial_dict[dim][0]] = min(
+                    sliced_data[dim].values
+                )
+            if geospatial_dict[dim][1] in sliced_data.attrs:
+                sliced_data.attrs[geospatial_dict[dim][1]] = max(
+                    sliced_data[dim].values
+                )
     return sliced_data
 
 
@@ -147,10 +176,8 @@ def gmap(plot_var, cmap, gmap_limits, sliced_data, vmin=None, vmax=None):
     """
     # Color from cmap.
     color = cmap
-
     # Defining the figure
     fig = plt.figure(facecolor="w", edgecolor="k")
-
     # Axes with Cartopy projection
     ax = plt.axes(projection=ccrs.PlateCarree())
     # and extent
@@ -163,7 +190,6 @@ def gmap(plot_var, cmap, gmap_limits, sliced_data, vmin=None, vmax=None):
         ],
         ccrs.PlateCarree(),
     )
-
     # Plotting using Matplotlib
     if vmin and vmax:
         cf = sliced_data[plot_var].plot(
@@ -185,7 +211,6 @@ def gmap(plot_var, cmap, gmap_limits, sliced_data, vmin=None, vmax=None):
         )
 
     # Plot lat/lon grid
-
     gl = ax.gridlines(
         crs=ccrs.PlateCarree(),
         draw_labels=True,
@@ -198,8 +223,10 @@ def gmap(plot_var, cmap, gmap_limits, sliced_data, vmin=None, vmax=None):
     gl.right_labels = False
     gl.xformatter = LONGITUDE_FORMATTER
     gl.yformatter = LATITUDE_FORMATTER
-
     # Add map features with Cartopy
+    # Set environment variables to suppress GDAL/PROJ debug output
+    os.environ["CPL_DEBUG"] = "OFF"
+    os.environ["PROJ_DEBUG"] = "OFF"
     ax.add_feature(
         cfeature.NaturalEarthFeature(
             "physical",
@@ -210,6 +237,63 @@ def gmap(plot_var, cmap, gmap_limits, sliced_data, vmin=None, vmax=None):
         )
     )
     ax.coastlines(linewidth=1)
-
     plt.tight_layout()
     plt.show()
+
+
+def interpolate_path(
+    ds,
+    start,
+    end,
+    num_points=100,
+    method="linear",
+    grid_mapping="latitude_longitude",
+    utm_zone=None,
+    ellipsoid=None,
+):
+    """
+    Interpolates a dataset along a path defined by start and end coordinates on an irregular grid.
+
+    Parameters:
+        ds (xarray.Dataset): The input dataset containing 'latitude' and 'longitude' as coordinates.
+        start (tuple): A tuple (latitude, longitude) of the starting point.
+        end (tuple): A tuple (latitude, longitude) of the ending point.
+        num_points (int): Number of points to interpolate along the path.
+        method (str): Interpolation method to use ('linear', 'nearest').
+
+    Returns:
+        xarray.Dataset: The interpolated dataset along the path.
+    """
+    # Create linearly spaced points between start and end
+    lat_points = np.linspace(start[0], end[0], num_points)
+    lon_points = np.linspace(start[1], end[1], num_points)
+
+    # Define a path dataset for interpolation
+    path = xr.Dataset(
+        {"latitude": ("points", lat_points), "longitude": ("points", lon_points)}
+    )
+
+    # Interpolate the dataset to these points using the specified method
+    if grid_mapping == "latitude_longitude":
+        interpolated_ds = ds.interp(
+            latitude=path.latitude, longitude=path.longitude, method=method
+        )
+    else:
+        if None in (utm_zone, ellipsoid):
+            message = f"[ERR] for grid_mapping: {grid_mapping}, utm_zone and ellipsoid are required. Current values: {utm_zone}, {ellipsoid}!"
+            logger.error(message)
+            raise
+        x_points = list()
+        y_points = list()
+        for index, lat_value in enumerate(lat_points):
+            x, y = lib.project_lonlat_utm(
+                lon_points[index], lat_points[index], utm_zone, ellipsoid=ellipsoid
+            )
+            x_points.append(x)
+            y_points.append(y)
+
+        # Define a path dataset for interpolation
+        path = xr.Dataset({"x": ("points", x_points), "y": ("points", y_points)})
+        interpolated_ds = ds.interp(x=path.x, y=path.y, method=method)
+
+    return interpolated_ds, lat_points, lon_points
