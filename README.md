@@ -136,6 +136,8 @@ This package contains the following files:
 - **documents/**
 
   - **2024-01-08-CRESCENT-CVM.pptx**: Slide presentation of 2024-01-08
+  - **2024-05-14-Tutorial-on-CVM-Tools.pptx**: Slide presentation of 2024-05-14 CVM Topical Workshop
+  - **2024-05-14-Tutorial-on-CVM-Tools_Guide.pdfx**: Installation and the user guide of 2024-05-14 CVM Topical Workshop
 
 - **lib/**
 
