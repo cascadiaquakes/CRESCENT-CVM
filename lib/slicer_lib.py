@@ -63,6 +63,11 @@ def get_point(location):
         else:
             try:
                 point = point.split(",")
+                if len(point) != 2:
+                    logger.error(
+                        f"[ERR] invalid {location} range '{point}' input {location} as start, end depths"
+                    )
+                    point = None
                 point = [float(i) for i in point]
                 if location in ("start", "end"):
                     if lib.is_in_range(point[0], "latitude") and lib.is_in_range(

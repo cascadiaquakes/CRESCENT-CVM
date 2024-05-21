@@ -819,18 +819,18 @@ def main():
                                         coords = aux_coords
                                 elif slice_dir not in coords:
                                     coords = aux_coords
-
                                 # Done, back!
                                 if slice_dir.strip() == "exit":
                                     sys.exit()
-                                elif (
-                                    slice_dir.strip() == "back"
-                                    or slice_dir not in coords
-                                    or not slice_dir.strip()
-                                ):
+                                elif slice_dir.strip() == "back":
                                     # messages.append(f"[ERR] invalid variable {slice_dir}")
                                     slice_dir = "back"
                                     break
+                                elif slice_dir not in coords or not slice_dir.strip():
+                                    messages.append(
+                                        f"[ERR] invalid selection {slice_dir}"
+                                    )
+                                    continue
                                 # Explore what to do with the slice?
                                 else:
                                     slice_value = None
