@@ -38,10 +38,12 @@ def get_point(location):
     while point is None:
         if location != "depth":
             point = input(
-                f"Cross-section {location} point as lat,lon ['back', 'exit']? "
+                f"[slice-xsection] Cross-section {location} point as lat,lon ['back', 'exit']? "
             )
         else:
-            point = input(f"Cross-section depth range as start, end ['back', 'exit']? ")
+            point = input(
+                f"[slice-xsection] Cross-section depth range as start, end ['back', 'exit']? "
+            )
 
         # Done, back!
         if point.strip() == "exit":
@@ -62,14 +64,18 @@ def get_point(location):
             try:
                 point = point.split(",")
                 point = [float(i) for i in point]
-                if lib.is_in_range(point[0], "latitude") and lib.is_in_range(
-                    point[1], "longitude"
-                ):
+                if location in ("start", "end"):
+                    if lib.is_in_range(point[0], "latitude") and lib.is_in_range(
+                        point[1], "longitude"
+                    ):
+                        break
+                    logger.error(
+                        f"[ERR] invalid latitude,longitude pair: {point[0]},{point[1]}"
+                    )
+                    point = None
+                # Depth.
+                else:
                     break
-                logger.error(
-                    f"[ERR] invalid latitude,longitude pair: {point[0]},{point[1]}"
-                )
-                point = None
             except Exception as ex:
                 logger.error(
                     f"[ERR] invalid {location} range '{point}' input {location} as value1,value2\n{ex}"
@@ -138,30 +144,38 @@ def subsetter(ds, limits):
         "longitude": ["geospatial_lon_min", "geospatial_lon_max"],
         "depth": ["geospatial_vertical_min", "geospatial_vertical_max"],
     }
-    limit_keys = list(limits.keys())
-    limit_values = list(limits.values())
-    sliced_data = ds.where(
-        (ds[limit_keys[0]] >= limit_values[0][0])
-        & (ds[limit_keys[0]] <= limit_values[0][1])
-        & (ds[limit_keys[1]] >= limit_values[1][0])
-        & (ds[limit_keys[1]] <= limit_values[1][1])
-        & (ds[limit_keys[2]] >= limit_values[2][0])
-        & (ds[limit_keys[2]] <= limit_values[2][1])
-    )
+    # Check if the array has any zero-sized dimensions
+    warnings = ""
+    try:
+        limit_keys = list(limits.keys())
+        limit_values = list(limits.values())
+        sliced_data = ds.where(
+            (ds[limit_keys[0]] >= limit_values[0][0])
+            & (ds[limit_keys[0]] <= limit_values[0][1])
+            & (ds[limit_keys[1]] >= limit_values[1][0])
+            & (ds[limit_keys[1]] <= limit_values[1][1])
+            & (ds[limit_keys[2]] >= limit_values[2][0])
+            & (ds[limit_keys[2]] <= limit_values[2][1]),
+            drop=True,
+        )
 
-    for dim in limit_keys:
-        if dim in geospatial_dict:
-            #  The dropna method is used to remove coordinates with all NaN values along the specified dimensions
-            sliced_data = sliced_data.dropna(dim=dim, how="all")
-            if geospatial_dict[dim][0] in sliced_data.attrs:
-                sliced_data.attrs[geospatial_dict[dim][0]] = min(
-                    sliced_data[dim].values
-                )
-            if geospatial_dict[dim][1] in sliced_data.attrs:
-                sliced_data.attrs[geospatial_dict[dim][1]] = max(
-                    sliced_data[dim].values
-                )
-    return sliced_data
+        for dim in limit_keys:
+            if dim in geospatial_dict:
+                #  The dropna method is used to remove coordinates with all NaN values along the specified dimensions
+                sliced_data = sliced_data.dropna(dim=dim, how="all")
+                if geospatial_dict[dim][0] in sliced_data.attrs:
+                    sliced_data.attrs[geospatial_dict[dim][0]] = min(
+                        sliced_data[dim].values
+                    )
+                if geospatial_dict[dim][1] in sliced_data.attrs:
+                    sliced_data.attrs[geospatial_dict[dim][1]] = max(
+                        sliced_data[dim].values
+                    )
+    except Exception as ex:
+        warnings = ex
+        return ds, warnings
+
+    return sliced_data, warnings
 
 
 def gmap(plot_var, cmap, gmap_limits, sliced_data, vmin=None, vmax=None):

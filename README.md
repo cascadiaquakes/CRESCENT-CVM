@@ -1,7 +1,7 @@
 # Cascadia Community Velocity Model Tools (CVM Tools)
 
-Last updated: 2024-05-03 \
-Release: r0.6
+Last updated: 2024-05-21 \
+Release: r0.7
 
 This repository contains Python 3 tools developed to support the Cascadia Community Velocity Models ([CVM](https://cascadiaquakes.org/cvm/)) project. These tools facilitate the storage, extraction, and visualization of the CVMs.
 
@@ -76,7 +76,7 @@ The following velocity sample models are provided under the _sample-files_ direc
 5. Convert the metadata to GeoCSV by running the _../../src/cvm_writer.py_ code (use the _-h_ flag for usage information):
    <br />**../../src/cvm_writer.py -m Cascadia-ANT+RF_meta.txt -o Cascadia-ANT+RF-test -t metadata**<br />
    _-m Cascadia-ANT+RF_meta.txt_ tells cvm*writer that the metadata file is \_Cascadia-ANT+RF_meta.txt*<br />
-   _-o Cascadia-ANT+RF-test_ tells it what the output filename should be. For metadata, a postfix of _\_metada_ will be added to the filename.<br />
+   _-o Cascadia-ANT+RF-test_ tells it what the output filename should be. For metadata, a postfix of _\_metadata_ will be added to the filename.<br />
    _-t metadata_ tells the code that we only want the metadata files. After running this commend, you should see two new files in your model directory:
    <br />_ Cascadia-ANT+RF-test_metadata.csv -- the metadata file in GeoCSV format
    <br />_ Cascadia-ANT+RF-test_metadata.json -- the metadata file in JSON format

@@ -11,4 +11,4 @@ y = "y"
 auxiliary_x = "longitude"
 auxiliary_y = "latitude"
 x_min = 200000
-y_min = 5000000
+y_min = 500000

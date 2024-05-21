@@ -38,19 +38,57 @@ dash = 10 * "-"
 
 # Set up the logger.
 logger = lib.get_logger()
+valid_file_types = {"csv": ".csv", "geocsv": ".csv", "netcdf": ".nc"}
+
 
 def usage():
     logger.info(
         f"""
-    Extract data from a CVM netCDF file. Interactively, users can inspect the metadata, slice the data, plot, 
-    and save the sliced data. Currently, slicing is performed only along the existing coordinate planes.
+        Extract data from a CVM netCDF file. Interactively, users can inspect the metadata, slice the data, plot, 
+        and save the sliced data. Currently, slicing is performed only along the existing coordinate planes.
 
-    Call arguments:
-        -h, --help: this message.
-        -v, --verbose: [optional] run in verbose mode.
-        -i, --input: [required] the input nefiletCDF filename.
-"""
+        Call arguments:
+            -h, --help: Display this help message.
+            -v, --verbose: [optional] Run in verbose mode.
+            -i, --input: [required] The input netCDF filename.
+
+        """
     )
+
+
+import os
+
+
+def format_numbers(numbers, digits=2):
+    """
+    Formats a single number or a list/tuple of numbers to a specified number of decimal places.
+
+    Parameters:
+        numbers: A single number, or a list/tuple of numbers to be formatted.
+        digits: The number of decimal places to format to. Default is 2.
+
+    Returns:
+        A string with the formatted number(s).
+    """
+    if isinstance(numbers, (int, float)):
+        # If it's a single number, format it directly
+        formatted_numbers = f"{numbers:.{digits}f}"
+    elif isinstance(numbers, (list, tuple)):
+        # If it's a list or tuple, format each number individually
+        formatted_numbers = f"[{', '.join(f'{num:.{digits}f}' for num in numbers)}]"
+    else:
+        raise TypeError("Input must be a single number, a list, or a tuple.")
+
+    return formatted_numbers
+
+
+def get_netcdf_engine(filename):
+    """Finds the netcdf engine for reading a netcdf file."""
+    for extension in prop.netcdf_engines:
+        if filename.endswith(extension):
+            return prop.netcdf_engines[extension]
+    return None
+
 
 def display_range(ds):
     """Output ranges for the given dataset."""
@@ -58,8 +96,9 @@ def display_range(ds):
     for var in ds.variables:
         logger.info(
             f"\t{var}: {np.nanmin(ds[var].data):0.2f} to  {np.nanmax(ds[var].data):0.2f} {ds[var].attrs['units']}"
-            )
+        )
     logger.info("\n")
+
 
 def display_metadata(ds):
     """Output metadata for the given dataset."""
@@ -74,43 +113,84 @@ def display_metadata(ds):
     slicer_lib.display_var_meta(ds, list(ds.data_vars), indent, values=False)
     logger.info("\n")
 
+
 def output_messages(messages):
     """Output messages stored in a message list."""
     if messages:
         new_line = "\n"
-        logger.info(f"{new_line}{new_line}NOTES:{new_line}{dash}{new_line}{new_line.join(messages)}")
-    logger.info("\n")
-    return list()     
+        logger.info(f"{new_line}NOTES: {new_line.join(messages)}")
+    return list()
+
 
 def output_data(subset_volume, filename, messages):
-    valid_file_extensions = [".csv", ".gcsv", ".nc"]
-    
+
+    # Define the desired precision
+    precision = 3
+
+    # Data variables.
+
+    data_vars = list(subset_volume.data_vars)
+
+    # The main coordinate variables.
+    main_coords_list = [coord for coord in subset_volume.dims]
+
+    # Round the auxiliary coordinates to the desired precision
+    aux_coords_list = [
+        coord for coord in subset_volume.coords if coord not in main_coords_list
+    ]
+
+    for var in aux_coords_list:
+        if var in ["latitude", "longitude"]:
+            subset_volume[var].values = np.round(subset_volume[var].values, precision)
+        else:
+            subset_volume[var].values = np.round(subset_volume[var].values, precision)
+
     if filename.endswith(".gcsv"):
-        meta = lib.get_geocsv_metadata_from_ds(
-            subset_volume
-        )
+        meta = lib.get_geocsv_metadata_from_ds(subset_volume)
         meta = f"# dataset: GeoCSV2.0\n# delimiter: ,\n{meta}"
         with open(filename, "w") as fp:
             fp.write(meta)
-        subset_volume.to_dataframe().to_csv(
-            filename, mode="a"
-        )
+        subset_volume.to_dataframe().to_csv(filename, mode="a")
         messages.append(f"[INFO] Saved as {filename}")
     elif filename.endswith(".csv"):
-        meta = lib.get_geocsv_metadata_from_ds(
-            subset_volume
-        )
+        meta = lib.get_geocsv_metadata_from_ds(subset_volume)
         with open(filename, "w") as fp:
-            subset_volume.to_dataframe().to_csv(
-            filename, mode="w"
-        )
+            subset_volume.to_dataframe().to_csv(filename, mode="w")
         messages.append(f"[INFO] Saved as {filename}")
     elif filename.endswith(".nc"):
-        subset_volume.to_netcdf(filename, mode="w")
+        # Generate the encoding dictionary for all variables to apply compression
+        encoding = {var: {"zlib": True, "complevel": 4} for var in data_vars}
+
+        # To prevent _FillValue from being automatically assigned to dimension variables.
+        for coord in main_coords_list:
+            if coord not in encoding:
+                encoding[coord] = {"_FillValue": None}
+            else:
+                encoding[coord]["_FillValue"] = None
+
+        subset_volume.to_netcdf(
+            filename, mode="w", format="NETCDF4_CLASSIC", encoding=encoding
+        )
+        messages.append(f"[INFO] Saved as {filename}")
+    elif filename.endswith(".h5"):
+        # Generate the encoding dictionary for all variables to apply compression
+        encoding = {var: {"zlib": True, "complevel": 4} for var in data_vars}
+
+        # To prevent _FillValue from being automatically assigned to dimension variables.
+        for coord in main_coords_list:
+            if coord not in encoding:
+                encoding[coord] = {"_FillValue": None}
+            else:
+                encoding[coord]["_FillValue"] = None
+
+        subset_volume.to_netcdf(
+            filename, mode="w", engine=prop.netcdf_engines[".h5"], encoding=encoding
+        )
         messages.append(f"[INFO] Saved as {filename}")
     else:
-        messages.append(f"[ERR] invalid file type: {filename} (must have one of the extensions: {valid_file_extensions})")
+        messages.append(f"[ERR] invalid file: {filename}")
     return messages
+
 
 def main():
     vmin = None
@@ -120,7 +200,6 @@ def main():
     interpolation_method = slicer_prop.interpolation_method
     xsection_steps = slicer_prop.steps
     vertical_exaggeration = 0
-
 
     # Capture the input parameters.
     try:
@@ -180,11 +259,11 @@ def main():
                 f"planes or as an interpolated cross-sectional slice through gridded data.\n\n"
             )
         messages.append(f"[INFO] Loaded {input_file} and it is a netCDF file")
-        with xr.open_dataset(input_file, engine="netcdf4") as ds:
+        engine = get_netcdf_engine(input_file)
+        with xr.open_dataset(input_file, engine=engine) as ds:
+            if "model" in ds.attrs:
+                base_title = ds.attrs["model"]
             data_var = list(ds.data_vars)
-            dimensions = list(ds.dims)
-            main_coordinates = list()
-            aux_coordinates = list()
             coordinates = list(ds.coords)
             for var in coordinates:
                 if var not in ds:
@@ -195,11 +274,17 @@ def main():
                     sys.exit(3)
                 coordinate_values[var] = list(ds[var].data)
 
-            for var in coordinates:
-                if var in dimensions:
-                    main_coordinates.append(var)
-                else:
-                    aux_coordinates.append(var)
+            # Identify main coordinates (x, y, latitude, longitude)
+            main_coords_list = ["x", "y", "latitude", "longitude"]
+
+            # Identify main and auxiliary coordinates
+            main_coords = [coord for coord in ds.coords if coord in ds.dims]
+            aux_coords_list = [coord for coord in ds.coords if coord not in ds.dims]
+            aux_coords = aux_coords_list.copy()
+            # Make sure other coordinates not in the main list appear in aux_coords.
+            aux_coords += [
+                coord for coord in main_coords if coord not in main_coords_list
+            ]
 
             while option != "exit":
                 if verbose:
@@ -207,7 +292,9 @@ def main():
                         f"\nThe available options are:\n\tmeta - to view file's metadata\n\trange - to display value ranges for variables\n\tsubset - to subset the data\n\t{dash}\n\thelp\n\texit "
                     )
                 messages = output_messages(messages)
-                option = input("select option [meta, range, subset, help, exit]? ")
+                option = input(
+                    "[data] select option [meta, range, subset, help, exit]? "
+                )
 
                 # Done, back!
                 if (
@@ -240,7 +327,7 @@ def main():
                                 f"\nYou can subset the data as a:\n\tvolume - a subvolume of data\n\tslice - a slice along a coordinate axes\n\txsection - a vertical slice in an arbitrary direction\n\t{dash}\n\tback - takes you to the previous step\n\texit "
                             )
                         subset_type = input(
-                            f"\nselect [volume, slice, xsection, back, exit]? "
+                            f"[subset] select [volume, slice, xsection, back, exit]? "
                         )
                         # Done, back!
                         if subset_type.strip() == "exit":
@@ -261,8 +348,9 @@ def main():
                                         f"\nEnter the {dim} range for the volume as minimum,maximum.\n\tPress return to accept the default values (full range) \n\t{dash}\n\tback - takes you to the previous step\n\texit "
                                     )
                                 messages = output_messages(messages)
+                                # Format each number in the list to two decimal places and join them with a comma
                                 _limits = input(
-                                    f"{dim} range [default values { subset_limits[dim]}, back, exit]? "
+                                    f"[subset-volume] {dim} range [default values are: {subset_limits[dim]}, back, exit]? "
                                 )
 
                                 # Done, back!
@@ -271,39 +359,64 @@ def main():
                                 elif _limits.strip() == "back":
                                     break
                                 elif _limits and "," not in _limits:
-                                    messages.append(f"[WARN] Invalid limits for {dim} ({_limits}), using the full range of {subset_limits[dim]}.")
+                                    messages.append(
+                                        f"[WARN] Invalid limits for {dim} ({_limits}), using the full range of {subset_limits[dim]}."
+                                    )
                                     logger.warning(messages[-1])
                                     _limits = ""
                                 if _limits:
                                     values = _limits.split(",")
-                                    if lib.is_numeric(values[0]) and lib.is_numeric(values[1]):
+                                    if lib.is_numeric(values[0]) and lib.is_numeric(
+                                        values[1]
+                                    ):
                                         values[0] = float(values[0].strip())
                                         values[1] = float(values[1].strip())
-                                        if lib.is_in_range(values[0], dim)  and lib.is_in_range(values[1], dim): 
+                                        if lib.is_in_range(
+                                            values[0], dim
+                                        ) and lib.is_in_range(values[1], dim):
                                             subset_limits[dim] = (
-                                                min(values), max(values)
+                                                min(values),
+                                                max(values),
                                             )
-                                            messages.append(f"[INFO] {dim} limits: {values}.")
+                                            messages.append(
+                                                f"[INFO] {dim} limits: {values}."
+                                            )
                                         else:
-                                            messages.append(f"[WARN] Invalid limits of {_limits} for {dim}, using the full range of {subset_limits[dim]}.")
+                                            messages.append(
+                                                f"[WARN] Invalid limits of {_limits} for {dim}, using the full range of {subset_limits[dim]}."
+                                            )
                                             logger.warning(messages[-1])
                                             _limits = ""
                                     else:
-                                        messages.append(f"[WARN] Invalid limits of {_limits} for {dim} (both limits must be provided as numbers). Will be using the full range of {subset_limits[dim]}.")
+                                        messages.append(
+                                            f"[WARN] Invalid limits of {_limits} for {dim} (both limits must be provided as numbers). Will be using the full range of {subset_limits[dim]}."
+                                        )
                                         logger.warning(messages[-1])
                                         _limits = ""
                                 else:
-                                    messages.append(f"[Info] {dim} will be set to full range: {subset_limits[dim]}.")
+                                    messages.append(
+                                        f"[Info] {dim} will be set to full range: {subset_limits[dim]}."
+                                    )
                                     logger.warning(messages[-1])
                                     _limits = ""
                             if _limits.strip() == "back":
                                 break
-                            subset_volume = slicer_lib.subsetter(ds, subset_limits)
-                            # Subset the data.
-                            messages.append(
-                                f"\nThe selected volume information:\n{subset_volume}"
+                            # warnings: Checking for all NaN values
+                            subset_volume, warnings = slicer_lib.subsetter(
+                                ds, subset_limits
                             )
-                            subset_action = "continue"
+
+                            if not warnings:
+                                # Subset the data.
+                                messages.append(
+                                    f"\nThe selected volume information:\n{subset_volume}"
+                                )
+                                subset_action = "continue"
+                            else:
+                                messages.append(
+                                    f"Invalid limits - {warnings} - please try again!"
+                                )
+                                subset_action = "back"
                             # Actions.
                             messages = output_messages(messages)
                             while subset_action != "back":
@@ -311,17 +424,42 @@ def main():
                                 subset_action == "save"
                                 if verbose:
                                     logger.info(
-                                        f"\nSave the data\n\tFilename -- The name of the file to save to. The extension determines the file format. Use to save as CSV, .csv .gcsv to save as GeoCSV, and .nc to save as netCDF.\n\t{dash}\n\tback - takes you to the previous step\n\texit "
+                                        f"\nSave the data\n\tFilename -- The name of the file to\n\tFiletype -- The output file type must be one of: {list(valid_file_types.keys())}.\n\t{dash}\n\tback - takes you to the previous step\n\texit "
                                     )
-                                
+
                                 messages = output_messages(messages)
-                                filename = input(f"Output filename? [back, exit]: ")
+                                file_info = input(
+                                    f"[subset-volume] Output filename and type (filename,type)? [valid file types are: {list(valid_file_types.keys())}; back, exit]: "
+                                )
+
                                 # Done, back!
-                                if filename.strip() == "exit":
+                                if file_info.strip() == "exit":
                                     sys.exit()
-                                elif filename.strip() == "back":
+                                elif file_info.strip() == "back":
                                     break
-                                messages = output_data(subset_volume, filename, messages)
+                                elif "," not in file_info:
+                                    messages.append(f"[ERR] Bad input: {file_info}")
+                                    continue
+                                else:
+                                    try:
+                                        filename, file_type = file_info.split(",")
+                                    except Exception as ex:
+                                        messages.append(
+                                            f"[ERR] Bad input: {file_info}\n{ex}"
+                                        )
+                                        continue
+
+                                    if file_type.strip() not in valid_file_types:
+                                        messages.append(f"[ERR] Bad input: {file_info}")
+                                        continue
+                                    else:
+                                        filename = f"{filename.strip()}{valid_file_types[file_type]}"
+
+                                messages = output_data(
+                                    subset_volume, filename, messages
+                                )
+                                messages = output_messages(messages)
+
                         elif subset_type == "xsection":
                             # A cross-section of the model.
                             if verbose:
@@ -338,9 +476,11 @@ def main():
                                     logger.info(
                                         f"\t{var}: {np.nanmin(ds[var].data):0.2f} to  {np.nanmax(ds[var].data):0.2f} {ds[var].attrs['units']}"
                                     )
-                            
+
                             # Get the unit of the depth
-                            z_unit = ds["depth"].attrs.get('units', 'No unit attribute found')
+                            z_unit = ds["depth"].attrs.get(
+                                "units", "No unit attribute found"
+                            )
                             depth_unit = lib.standard_units(z_unit)
 
                             units = "cgs"
@@ -348,8 +488,8 @@ def main():
                                 units = "mks"
 
                             logger.info(
-                                    f"[INFO] The depth unit is detected as: {z_unit}, will use: {depth_unit}. Units set distance units based on: {units}"
-                                )
+                                f"[INFO] The depth unit is detected as: {z_unit}, will use: {depth_unit}. Units set distance units based on: {units}"
+                            )
                             start = slicer_lib.get_point("start")
                             if start == "back":
                                 subset_type = "back"
@@ -382,11 +522,15 @@ def main():
                             utm_zone = None
                             meta = ds.attrs
                             if "grid_mapping_name" not in meta:
-                                messages.append(f"[WARN] The 'grid_mapping_name' attribute not found. Assuming geographic coordinate system")
+                                messages.append(
+                                    f"[WARN] The 'grid_mapping_name' attribute not found. Assuming geographic coordinate system"
+                                )
                                 grid_mapping_name = "latitude_longitude"
                             else:
                                 grid_mapping_name = meta["grid_mapping_name"]
-                                messages.append(f"[INFO] grid_mapping_name is {grid_mapping_name}")
+                                messages.append(
+                                    f"[INFO] grid_mapping_name is {grid_mapping_name}"
+                                )
 
                             # Cross-section interpolation type.
                             interp_type = interpolation_method[0]
@@ -396,7 +540,7 @@ def main():
                                 )
                             messages = output_messages(messages)
                             _interp_type = input(
-                                f"Interpolation Method [{', '.join(interpolation_method+['back', 'exit'])}, default: {interp_type}]? "
+                                f"[xsection] Interpolation Method [{', '.join(interpolation_method+['back', 'exit'])}, default: {interp_type}]? "
                             )
                             if _interp_type.strip() == "exit":
                                 sys.exit()
@@ -405,7 +549,9 @@ def main():
                             elif _interp_type.strip():
                                 interp_type = _interp_type
                             elif interp_type not in (interpolation_method):
-                                messages.append(f"[WARN] Invalid interpolation method of {interp_type}. Will use {interpolation_method[0]}")
+                                messages.append(
+                                    f"[WARN] Invalid interpolation method of {interp_type}. Will use {interpolation_method[0]}"
+                                )
                                 interp_type = interpolation_method[0]
 
                             # Steps in the cross-section.
@@ -416,7 +562,7 @@ def main():
                                 )
                             messages = output_messages(messages)
                             steps = input(
-                                f"Number of points ['back', 'exit', default: {steps}]? "
+                                f"[xsection] Number of points ['back', 'exit', default: {steps}]? "
                             )
                             if not steps.strip():
                                 steps = xsection_steps
@@ -425,156 +571,233 @@ def main():
                             elif steps.strip() == "back":
                                 break
                             elif not steps.isnumeric():
-                                messages.append(f"[WARN] Invalid number of steps, expected an integer. Will use {xsection_steps}")
+                                messages.append(
+                                    f"[WARN] Invalid number of steps, expected an integer. Will use {xsection_steps}"
+                                )
                                 steps = xsection_steps
                             else:
                                 steps = int(steps)
 
-                            
                             if verbose:
                                 logger.info(
                                     f"\nVertical exaggeration for the cross section.\n\tPress enter to select the default of {vertical_exaggeration}.\n\t{dash}\n\tback - takes you to the previous step\n\texit "
                                 )
                             messages = output_messages(messages)
-                            exaggeration = input(
-                                f"The section vertical exaggeration (0: dynamic aspect ratio)['back', 'exit', default: {vertical_exaggeration}]? "
-                            )
-                            relabel_y = False
-                            if not exaggeration.strip():
-                                exaggeration = vertical_exaggeration
-                            elif exaggeration.strip() == "exit":
-                                sys.exit()
-                            elif exaggeration.strip() == "back":
-                                break
-                            elif not exaggeration.replace(".", "").isnumeric():
-                                messages.append(f"[WARN] Invalid vertical exaggeration, expected a number. Will use {vertical_exaggeration}")
-                                exaggeration = vertical_exaggeration
-                            else:
-                                exaggeration = float(exaggeration)
-                                relabel_y = True
-                            # Extract the cross-section.
-                            try:
-                                xsection_data, latitudes, longitudes = slicer_lib.interpolate_path(
-                                        plot_data,
-                                        start,
-                                        end,
-                                        num_points=steps,
-                                        method=interp_type,
-                                        grid_mapping=grid_mapping_name,
-                                        utm_zone=meta["utm_zone"],
-                                        ellipsoid=meta["ellipsoid"],
-                                    )
-                            except Exception as ex:
-                                message = f"[ERR] interpolate_path failed: {ex}\n{traceback.print_exc()}"
-                                logger.error(message)
-                                break
 
-                            # Calculate distances between consecutive points
-                            geod = Geod(ellps=meta["ellipsoid"])
-                            _, _, distances = geod.inv(
-                                longitudes[:-1], latitudes[:-1], longitudes[1:], latitudes[1:]
-                            )
-
-                            # Compute cumulative distance, starting from 0
-                            cumulative_distances = np.concatenate(([0], np.cumsum(distances)))
-                            
-                            if "grid_mapping_name" not in meta:
-                                messages.append(f"[WARN] The 'grid_mapping_name' attribute not found. Assuming geographic coordinate system")
-                                grid_mapping_name = "latitude_longitude"
-                                
-                            else:
-                                grid_mapping_name = meta["grid_mapping_name"]
-                            
-                            
-                            if units == "mks":
-                                cumulative_distances = cumulative_distances / 1000.0
-                                distance_label = "distance (km)"
-                            else:
-                                distance_label = "distance (m)"
-
-                            # Create a new coordinate 'distance' based on the cumulative distances
-                            xsection_data = xsection_data.assign_coords(distance=("points", cumulative_distances))
-
-                            # If you want to use 'distance' as a dimension instead of 'index',
-                            # you can swap the dimensions (assuming 'index' is your current dimension)
-                            xsection_data = xsection_data.swap_dims({"points": "distance"})
-
-                            # Iterate through the model variables and plot each cross-section.
-                            plot_var = data_var[0]
-                            while plot_var:
-
-                                if len(data_var) > 1:
-                                    if verbose:
-                                        logger.info(
-                                            f"\nThe model variable to plot.\n\tback - takes you to the previous step\n\texit "
-                                        )
-                                    messages = output_messages(messages)
-                                    plot_var = input(
-                                        f"Variable to plot {data_var}, back, exit]: "
-                                    )
-                                # Done, back!
-                                if plot_var.strip() == "exit":
+                            _exagg = 0
+                            while _exagg != "back":
+                                _exagg = input(
+                                    f"[xsection] Vertical exaggeration (0: dynamic aspect ratio)['back', 'exit', default: {vertical_exaggeration}]? "
+                                )
+                                relabel_y = False
+                                if not _exagg.strip():
+                                    exaggeration = vertical_exaggeration
+                                elif _exagg.strip() == "exit":
                                     sys.exit()
-                                elif plot_var.strip() == "back" or not option.strip():
-                                    break
-                                elif plot_var not in data_var:
-                                    messages.append(f"[ERR] Invalid input {plot_var}")
+                                elif _exagg.strip() == "back":
+                                    _exagg = "back"
                                     continue
-                                pdata = xsection_data.copy()
-                                pdata["depth"] = -pdata["depth"]
-
-                                if vmin and vmax:
-                                    pdata[plot_var].plot.contourf(cmap=cmap, vmin=vmin, vmax=vmax)
+                                elif not _exagg.replace(".", "").isnumeric():
+                                    messages.append(
+                                        f"[WARN] Invalid vertical exaggeration, expected a number. Will use {vertical_exaggeration}"
+                                    )
+                                    exaggeration = vertical_exaggeration
                                 else:
-                                       pdata[plot_var].plot.contourf(
-                                    cmap=cmap,
-                                )
-                                # Get the current axes
-                                ax = plt.gca()
-                                ax.set_xlabel(distance_label)
-                                if relabel_y:
-                                    # Retrieve the current y-axis label
-                                    current_label = ax.get_ylabel()
+                                    exaggeration = float(_exagg)
+                                    relabel_y = True
+                                # Extract the cross-section.
+                                try:
+                                    xsection_data, latitudes, longitudes = (
+                                        slicer_lib.interpolate_path(
+                                            plot_data,
+                                            start,
+                                            end,
+                                            num_points=steps,
+                                            method=interp_type,
+                                            grid_mapping=grid_mapping_name,
+                                            utm_zone=meta["utm_zone"],
+                                            ellipsoid=meta["ellipsoid"],
+                                        )
+                                    )
+                                except Exception as ex:
+                                    message = f"[ERR] interpolate_path failed: {ex}\n{traceback.print_exc()}"
+                                    logger.error(message)
+                                    break
 
-                                    # Append new text to the existing label
-                                    new_label = f"{current_label}; VE x{exaggeration}"
-
-                                    # Set the new label
-                                    ax.set_ylabel(new_label)
-                                    plt.gca().set_aspect(exaggeration)
-                                
-                                plt.xticks(rotation=45)  # Rotating the x-axis labels to 45 degrees
-
-                                # Adding vertical text for start and end locations
-                                plt.text(
-                                    cumulative_distances[0],
-                                    1.05,
-                                    f"⟸{start}",
-                                    rotation=90,
-                                    transform=plt.gca().get_xaxis_transform(),
-                                    verticalalignment="bottom",
-                                    horizontalalignment='center',
-                                    fontsize=9,
-                                )
-                                plt.text(
-                                    cumulative_distances[-1],
-                                    1.05,
-                                    f"⟸{end}",
-                                    rotation=90,
-                                    transform=plt.gca().get_xaxis_transform(),
-                                    verticalalignment="bottom",
-                                    horizontalalignment='center',
-                                    fontsize=9,
+                                # Calculate distances between consecutive points
+                                geod = Geod(ellps=meta["ellipsoid"])
+                                _, _, distances = geod.inv(
+                                    longitudes[:-1],
+                                    latitudes[:-1],
+                                    longitudes[1:],
+                                    latitudes[1:],
                                 )
 
-                                # Add title if the model name is available.
-                                if "model" in meta:
-                                    plt.title(meta["model"])
+                                # Compute cumulative distance, starting from 0
+                                cumulative_distances = np.concatenate(
+                                    ([0], np.cumsum(distances))
+                                )
 
-                                # Adjust the layout
-                                plt.tight_layout()
-                                plt.show()
-                                break
+                                if "grid_mapping_name" not in meta:
+                                    messages.append(
+                                        f"[WARN] The 'grid_mapping_name' attribute not found. Assuming geographic coordinate system"
+                                    )
+                                    grid_mapping_name = "latitude_longitude"
+
+                                else:
+                                    grid_mapping_name = meta["grid_mapping_name"]
+
+                                if units == "mks":
+                                    cumulative_distances = cumulative_distances / 1000.0
+                                    distance_label = "distance (km)"
+                                else:
+                                    distance_label = "distance (m)"
+
+                                # Create a new coordinate 'distance' based on the cumulative distances
+                                xsection_data = xsection_data.assign_coords(
+                                    distance=("points", cumulative_distances)
+                                )
+
+                                # If you want to use 'distance' as a dimension instead of 'index',
+                                # you can swap the dimensions (assuming 'index' is your current dimension)
+                                xsection_data = xsection_data.swap_dims(
+                                    {"points": "distance"}
+                                )
+
+                                # Iterate through the model variables and plot each cross-section.
+                                plot_var = data_var[0]
+                                while plot_var:
+
+                                    if len(data_var) > 1:
+                                        if verbose:
+                                            logger.info(
+                                                f"\nThe model variable:\n\tback - takes you to the previous step\n\texit "
+                                            )
+                                        messages = output_messages(messages)
+                                        plot_var = input(
+                                            f"[xsection] Variable to plot {data_var}, back, exit]: "
+                                        )
+                                    # Done, back!
+                                    if plot_var.strip() == "exit":
+                                        sys.exit()
+                                    elif (
+                                        plot_var.strip() == "back" or not option.strip()
+                                    ):
+                                        break
+                                    elif plot_var not in data_var:
+                                        messages.append(
+                                            f"[ERR] Invalid input {plot_var}"
+                                        )
+                                        continue
+                                    """
+                                    _action = "plot"
+                                    while _action != "back":
+
+                                        if verbose:
+                                            logger.info(
+                                                f"\nWhat to do with the data:\n\tback - takes you to the previous step\n\texit "
+                                            )
+                                        messages = output_messages(messages)
+                                        _action = input(
+                                            f"[plot, save, back, exit]: "
+                                        )
+                                        # Done, back!
+                                        if _action.strip() == "exit":
+                                            sys.exit()
+                                        elif _action.strip() == "back" or not option.strip():
+                                            _action="break"
+                                            continue
+                                        elif _action == "plot":
+                                        """
+                                    pdata = xsection_data.copy()
+                                    pdata["depth"] = -pdata["depth"]
+
+                                    if vmin and vmax:
+                                        pdata[plot_var].plot.contourf(
+                                            cmap=cmap, vmin=vmin, vmax=vmax
+                                        )
+                                    else:
+                                        pdata[plot_var].plot.contourf(
+                                            cmap=cmap,
+                                        )
+                                    # Get the current axes
+                                    ax = plt.gca()
+                                    ax.set_xlabel(distance_label)
+                                    if relabel_y:
+                                        # Retrieve the current y-axis label
+                                        current_label = ax.get_ylabel()
+
+                                        # Append new text to the existing label
+                                        new_label = (
+                                            f"{current_label}; VE x{exaggeration}"
+                                        )
+
+                                        # Set the new label
+                                        ax.set_ylabel(new_label)
+                                        if exaggeration > 0:
+                                            plt.gca().set_aspect(exaggeration)
+
+                                    plt.xticks(
+                                        rotation=45
+                                    )  # Rotating the x-axis labels to 45 degrees
+
+                                    # Adding vertical text for start and end locations
+                                    plt.text(
+                                        cumulative_distances[0],
+                                        1.05,
+                                        f"⟸{start}",
+                                        rotation=90,
+                                        transform=plt.gca().get_xaxis_transform(),
+                                        verticalalignment="bottom",
+                                        horizontalalignment="center",
+                                        fontsize=9,
+                                    )
+                                    plt.text(
+                                        cumulative_distances[-1],
+                                        1.05,
+                                        f"⟸{end}",
+                                        rotation=90,
+                                        transform=plt.gca().get_xaxis_transform(),
+                                        verticalalignment="bottom",
+                                        horizontalalignment="center",
+                                        fontsize=9,
+                                    )
+
+                                    # Add title if the model name is available.
+                                    plt.title(f"{base_title} - {plot_var}")
+
+                                    # Adjust the layout
+                                    plt.tight_layout()
+                                    plt.show()
+                                    break
+                                    """
+                                        # Save the slice data.
+                                        elif _action == "save":
+
+                                            filename = ""
+                                            while filename != "back":
+
+                                                messages = output_messages(messages)
+                                                file_info = input(f"Output filename and type (filename,type)? [valid file types are: {list(valid_file_types.keys())}; back, exit]: ")
+
+                                                # Done, back!
+                                                if file_info.strip() == "exit":
+                                                    sys.exit()
+                                                elif file_info.strip() == "back":
+                                                    break
+                                                elif "," not in file_info:
+                                                    messages.append(f"[ERR] Bad input: {file_info}")
+                                                    continue
+                                                else:
+                                                    filename, file_type = file_info.split(",")
+                                                    if file_type.strip() not in valid_file_types:
+                                                        messages.append(f"[ERR] Bad input: {file_info}")
+                                                        continue
+                                                    else:
+                                                        filename = f"{filename.strip()}{valid_file_types[file_type]}"
+                                                messages = output_data(xsection_data[plot_var], filename, messages)
+                                                messages = output_messages(messages)
+                                        """
 
                         elif subset_type == "slice":
                             # Slice the model.
@@ -586,26 +809,35 @@ def main():
                                     )
                                 messages = output_messages(messages)
                                 slice_dir = input(
-                                    f"direction [{', '.join(main_coordinates+['back', 'exit'])}]? "
+                                    f"[subset-slice] direction [{', '.join(main_coords+['back', 'exit'])}]? "
                                 )
+                                # Decide on the coordinate system to work with.
+                                # If in both, choose the geographic one.
+                                coords = main_coords
+                                if slice_dir in main_coords and slice_dir in aux_coords:
+                                    if "latitude" not in coords:
+                                        coords = aux_coords
+                                elif slice_dir not in coords:
+                                    coords = aux_coords
+
                                 # Done, back!
                                 if slice_dir.strip() == "exit":
                                     sys.exit()
                                 elif (
                                     slice_dir.strip() == "back"
-                                    or slice_dir not in main_coordinates
+                                    or slice_dir not in coords
                                     or not slice_dir.strip()
                                 ):
-                                    messages.append(f"[ERR] invalid variable {slice_dir}")
+                                    # messages.append(f"[ERR] invalid variable {slice_dir}")
                                     slice_dir = "back"
                                     break
                                 # Explore what to do with the slice?
                                 else:
-                                    messages = output_messages(messages)
                                     slice_value = None
                                     while slice_value is None:
+                                        messages = output_messages(messages)
                                         slice_value = input(
-                                            f"slice {slice_dir} [{np.nanmin(ds[slice_dir].data)} to {np.nanmax(ds[slice_dir].data)}, back, exit]? "
+                                            f"[subset-slice-{slice_dir}] {slice_dir} [{np.nanmin(ds[slice_dir].data)} to {np.nanmax(ds[slice_dir].data)}, back, exit]? "
                                         )
 
                                         # Exit.
@@ -626,7 +858,6 @@ def main():
                                                     f"[ERR] invalid value {slice_value}\n{ex}"
                                                 )
                                                 slice_value = None
-                                                slice_value = "back"
                                         if slice_value == "back":
                                             break
                                     # Actions.
@@ -637,8 +868,8 @@ def main():
                                         coordinate_values[slice_dir],
                                         slice_value,
                                     )
-                                    
-                                    slice_dims = main_coordinates.copy()
+
+                                    slice_dims = coords.copy()
                                     slice_dims.remove(slice_dir)
                                     slice_limits = dict()
                                     gmap_limits = dict()
@@ -666,7 +897,7 @@ def main():
                                             np.nanmax(ds[dim].data),
                                         )
                                         messages.append(
-                                            f"\nSlicing at the closest {slice_dir} of {closest_slice_value}"
+                                            f"Slicing at the closest {slice_dir} of {closest_slice_value}"
                                         )
 
                                         if verbose:
@@ -675,7 +906,7 @@ def main():
                                             )
                                         messages = output_messages(messages)
                                         _limits = input(
-                                            f"{dim} limits [default values { slice_limits[dim]}, back, exit]: "
+                                            f"[slice-{slice_dir}] {dim} limits [default values {format_numbers(slice_limits[dim], digits=2)}, back, exit]: "
                                         )
                                         # Done, back!
                                         if _limits.strip() == "exit":
@@ -734,9 +965,9 @@ def main():
                                                 logger.info(
                                                     f"\nWhat to do with the slice.\n\tplot2d - a 2D plot of {slice_dims}\n\tplot3d - a 3D plot of {slice_dims} and the model variable on the 3rd axis.\n\tThe plot is interactive and can be rotated.\n\tcmap - change the color map for the plots (NOTE: You may also provide cmap,vmin,vmax)\n\tsave - save the slice data\n\t{dash}\n\tback - takes you to the previous step\n\texit  "
                                                 )
-                                                messages = output_messages(messages)
+                                        messages = output_messages(messages)
                                         slice_action = input(
-                                            f"Action [plot2d, plot3d{gmap_option}, cmap, save, back, exit]: "
+                                            f"[slice-{slice_dir}] Action [plot2d, plot3d{gmap_option}, cmap, save, back, exit]: "
                                         )
                                         # Done, back!
                                         if slice_action.strip() == "exit":
@@ -745,16 +976,16 @@ def main():
                                             slice_action.strip() == "back"
                                             or not option.strip()
                                         ):
-                                            break
+                                            continue
                                         # 2D plot.
                                         if slice_action == "plot2d":
                                             # Plot each model variable.
                                             plot_var = data_var[0]
                                             while plot_var:
                                                 if len(data_var) > 1:
-                                                    messages=output_messages(messages)
+                                                    messages = output_messages(messages)
                                                     plot_var = input(
-                                                        f"Variable to plot {data_var}, back, exit]: "
+                                                        f"[slice-{slice_dir}-plot2d] Variable to plot {data_var}, back, exit]: "
                                                     )
                                                 # Done, back!
                                                 if plot_var.strip() == "exit":
@@ -770,6 +1001,7 @@ def main():
                                                     )
                                                     continue
                                                 plot_data = sliced_data[plot_var].copy()
+
                                                 # Set the depth axis (if exists) direction.
                                                 if "depth" in plot_data.dims:
                                                     if (
@@ -786,9 +1018,12 @@ def main():
                                                                 -plot_data["depth"]
                                                             )
                                                 if vmin and vmax:
-                                                    plot_data.plot(cmap=cmap, vmin=vmin, vmax=vmax)
+                                                    plot_data.plot(
+                                                        cmap=cmap, vmin=vmin, vmax=vmax
+                                                    )
                                                 else:
-                                                     plot_data.plot(cmap=cmap)
+                                                    plot_data.plot(cmap=cmap)
+                                                plt.title(f"{base_title} - {plot_var}")
                                                 # Adjust the layout
                                                 plt.tight_layout()
                                                 plt.show()
@@ -799,9 +1034,9 @@ def main():
                                             plot_var = data_var[0]
                                             while plot_var:
                                                 if len(data_var) > 1:
-                                                    messages=output_messages(messages)
+                                                    messages = output_messages(messages)
                                                     plot_var = input(
-                                                        f"Variable to plot {data_var}, back, exit]: "
+                                                        f"[slice-{slice_dir}-plot3d] Variable to plot {data_var}, back, exit]: "
                                                     )
                                                 # Done, back!
                                                 if plot_var.strip() == "exit":
@@ -818,11 +1053,14 @@ def main():
                                                     continue
 
                                                 if vmin and vmax:
-                                                    sliced_data[plot_var].plot.surface(cmap=cmap, vmin=vmin, vmax=vmax)
+                                                    sliced_data[plot_var].plot.surface(
+                                                        cmap=cmap, vmin=vmin, vmax=vmax
+                                                    )
                                                 else:
-                                                     sliced_data[plot_var].plot.surface(
-                                                    cmap=cmap,
-                                                )
+                                                    sliced_data[plot_var].plot.surface(
+                                                        cmap=cmap,
+                                                    )
+                                                plt.title(f"{base_title} - {plot_var}")
                                                 # Adjust the layout
                                                 plt.tight_layout()
                                                 plt.show()
@@ -835,7 +1073,7 @@ def main():
                                                 if len(data_var) > 1:
                                                     messages = output_messages(messages)
                                                     plot_var = input(
-                                                        f"Variable to plot {data_var}, back, exit]: "
+                                                        f"[slice-{slice_dir}-gmap] Variable to plot {data_var}, back, exit]: "
                                                     )
                                                 # Done, back!
                                                 if plot_var.strip() == "exit":
@@ -856,70 +1094,117 @@ def main():
                                                     cmap,
                                                     gmap_limits,
                                                     sliced_data,
-                                                    vmin=vmin, vmax=vmax,
+                                                    vmin=vmin,
+                                                    vmax=vmax,
                                                 )
                                                 if len(data_var) <= 1:
                                                     plot_var = "back"
                                         # Colormap.
                                         elif slice_action == "cmap":
-                                            messages.append(f"\n[cmaps] {plt.colormaps()}")
-                                            messages = output_messages(messages)
-                                            cmap = input(
-                                                f"Select a color map for the plot [default cmap {cmap} (NOTE: You may also provide cmap,vmin,vmax), back, exit]: "
+                                            messages.append(
+                                                f"\n[cmaps] {plt.colormaps()}"
                                             )
-                                            items = cmap.split(",")
-                                            if len(items) == 1:
-                                                cmap = items[0]
-                                                if cmap not in plt.colormaps():
-                                                    messages.append(
-                                                        f"[ERR] invalid cmap: {cmap}"
-                                                    )
-                                                    break
-                                                    
-                                            elif len(items) == 3:
-                                                cmap = items[0]
-                                                if cmap not in plt.colormaps():
-                                                    messages.append(
-                                                        f"[ERR] invalid cmap: {cmap}"
-                                                    )
-                                                    break
-                                                vmin = float(items[1])
-                                                vmax = float(items[2])
-                                                messages.append(f"[INFO] CMAP:{cmap}, vmin:{vmin}, vmax:{vmax}")
-                                            else:
-                                                cmap = prop.cmap
-                                                messages.append(
-                                                    f"[ERR] invalid cmap: {",".join(items)}"
+                                            _cmap = prop.cmap
+                                            while _cmap != "back":
+                                                messages = output_messages(messages)
+                                                _cmap = input(
+                                                    f"[slice-{slice_dir}-cmap] Select a color map for the plot [default cmap {cmap} (NOTE: You may also provide cmap,vmin,vmax), back, exit]: "
                                                 )
-                                                break
+                                                # Done, back!
+                                                if _cmap.strip() == "exit":
+                                                    sys.exit()
+                                                elif _cmap.strip() == "back":
+                                                    _cmap = "back"
+                                                    continue
+                                                elif not _cmap.strip():
+                                                    cmap = prop.cmap
+                                                    messages.append(
+                                                        f"[INFO] Using the default cmap: {cmap}"
+                                                    )
+                                                    break
+                                                items = _cmap.split(",")
+                                                if len(items) == 1:
+                                                    _cmap = items[0]
+                                                    if not _cmap:
+                                                        _cmap = cmap
+                                                    if _cmap not in plt.colormaps():
+                                                        messages.append(
+                                                            f"[ERR] invalid cmap: {_cmap}"
+                                                        )
+                                                        continue
+                                                    cmap = _cmap
+                                                    break
+                                                elif len(items) == 3:
+                                                    _cmap = items[0]
+                                                    if not _cmap:
+                                                        _cmap = cmap
+                                                    if _cmap not in plt.colormaps():
+                                                        messages.append(
+                                                            f"[ERR] invalid cmap: {_cmap}"
+                                                        )
+                                                        continue
+                                                    cmap = _cmap
+                                                    vmin = float(items[1])
+                                                    vmax = float(items[2])
+                                                    messages.append(
+                                                        f"[INFO] CMAP:{cmap}, vmin:{vmin}, vmax:{vmax}"
+                                                    )
+                                                    break
+                                                else:
+                                                    cmap = prop.cmap
+                                                    messages.append(
+                                                        f"[ERR] invalid cmap selection input: {','.join(items)}"
+                                                    )
+                                                    continue
                                         # Save the slice data.
                                         elif slice_action == "save":
-                                            if verbose:
-                                                logger.info(
-                                                    f"\nSave the data\n\tfilename -- filename for saving the file. Its extension determines the file format.\n\t\tfilename.csv to save as GeoCSV, filename.nc to output as netCDF\n\t{dash}\n\tback - takes you to the previous step\n\texit "
-                                                )
-                                            messages=output_messages(messages)
-                                            filename = input(
-                                                f"Output filename? [back, exit]: "
-                                            )
+                                            filename = ""
+                                            while filename != "back":
 
-                                            # Done, back!
-                                            if filename.strip() == "exit":
-                                                sys.exit()
-                                            elif (
-                                                filename.strip() == "back"
-                                                or not option.strip()
-                                            ):
-                                                filename = "back"
-                                                break
-                                            else:
-                                                messages = output_data(sliced_data, filename, messages)
-                                            
+                                                messages = output_messages(messages)
+                                                file_info = input(
+                                                    f"[slice-{slice_dir}-save] Output filename and type (filename,type)? [valid file types are: {list(valid_file_types.keys())}; back, exit]: "
+                                                )
+
+                                                # Done, back!
+                                                if file_info.strip() == "exit":
+                                                    sys.exit()
+                                                elif file_info.strip() == "back":
+                                                    break
+                                                elif "," not in file_info:
+                                                    messages.append(
+                                                        f"[ERR] Bad input: {file_info}"
+                                                    )
+                                                    continue
+                                                else:
+                                                    try:
+                                                        filename, file_type = (
+                                                            file_info.split(",")
+                                                        )
+                                                    except Exception as ex:
+                                                        messages.append(
+                                                            f"[ERR] Bad input: {file_info}\n{ex}"
+                                                        )
+                                                        continue
+                                                    if (
+                                                        file_type.strip()
+                                                        not in valid_file_types
+                                                    ):
+                                                        messages.append(
+                                                            f"[ERR] Bad input: {file_info}"
+                                                        )
+                                                        continue
+                                                    else:
+                                                        filename = f"{filename.strip()}{valid_file_types[file_type]}"
+                                                messages = output_data(
+                                                    sliced_data, filename, messages
+                                                )
+                                                messages = output_messages(messages)
 
                                 # What does the user want to do next?
                                 messages = output_messages(messages)
                                 slice_value = input(
-                                    f"Slice at {slice_dir} of (between {np.nanmin(ds[slice_dir].data)} and {np.nanmax(ds[slice_dir].data)}) [back, exit]: "
+                                    f"[slice-{slice_dir}] {slice_dir} slice (between {np.nanmin(ds[slice_dir].data)} and {np.nanmax(ds[slice_dir].data)}) [back, exit]: "
                                 )
                                 # Done, back!
                                 if slice_value.strip() == "exit":

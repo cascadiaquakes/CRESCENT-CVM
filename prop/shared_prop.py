@@ -4,6 +4,12 @@ LIB_DIR = "lib"
 dataset_version = "GeoCSV 2.0"
 delimiter = "|"
 na_rep = "nan"
-extension = {"geocsv": ".csv", "netcdf": ".nc", "json": ".json", "nonlinloc": ".txt"}
+extension = {
+    "geocsv": ".csv",
+    "netcdf": ".nc",
+    "json": ".json",
+    "nonlinloc": ".txt",
+}
+netcdf_engines = {".nc": "netcdf4"}
 line_break = "\n"
 cmap = "jet_r"

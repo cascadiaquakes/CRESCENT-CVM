@@ -121,21 +121,53 @@ closest_slice_value = lib.closest(
 )
 
 logger.info(f"[INFO] extracting the closest depth of {closest_slice_value}")
-ds_var_depth = ds_var.where(ds_var.depth == closest_slice_value, drop=True)
-ds_var_depth.plot(figsize=figure_size, cmap=cmap, vmin=vmin, vmax=vmax)
+try:
+    ds_var_depth = ds_var.where(ds_var.depth == closest_slice_value, drop=True)
+except Exception as ex:
+    logger.error(f"[ERR] Failed to extract data:\n{ex}\nCheck the dataset:{ds_var}")
+    sys.exit(2)
+
+try:
+    ds_var_depth.plot(figsize=figure_size, cmap=cmap, vmin=vmin, vmax=vmax)
+except Exception as ex:
+    logger.error(
+        f"[ERR] Failed to plot data:\n{ex}\nCheck the rdDataset:{ds_var_depth}"
+    )
 plt.show()
 
 # Plot the same slice in the auxiliary coordinates.
-ds_var_depth.plot(
-    figsize=figure_size, cmap=cmap, vmin=vmin, vmax=vmax, x=auxiliary_x, y=auxiliary_y
-)
+try:
+    ds_var_depth.plot(
+        figsize=figure_size,
+        cmap=cmap,
+        vmin=vmin,
+        vmax=vmax,
+        x=auxiliary_x,
+        y=auxiliary_y,
+    )
+except Exception as ex:
+    logger.error(
+        f"[ERR] Failed to plot data:\n{ex}\nCheck the rdDataset:{ds_var_depth}"
+    )
 plt.show()
 
 
 # extract the upper right portion of the slice.
-ds_var_depth_ur = ds_var.where(
-    (ds_var.depth == closest_slice_value) & (ds_var[x] >= x_min) & (ds_var[y] >= y_min),
-    drop=True,
-)
-ds_var_depth_ur.plot(figsize=figure_size_s, cmap=cmap, vmin=vmin, vmax=vmax)
+try:
+    ds_var_depth_ur = ds_var.where(
+        (ds_var.depth == closest_slice_value)
+        & (ds_var[x] >= x_min)
+        & (ds_var[y] >= y_min),
+        drop=True,
+    )
+except Exception as ex:
+    logger.error(f"[ERR] Failed to extract data:\n{ex}\nCheck the dataset:{ds_var}")
+    sys.exit(2)
+
+try:
+    ds_var_depth_ur.plot(figsize=figure_size_s, cmap=cmap, vmin=vmin, vmax=vmax)
+except Exception as ex:
+    logger.error(
+        f"[ERR] Failed to plot data:\n{ex}\nCheck the rdDataset:{ds_var_depth_ur}"
+    )
 plt.show()

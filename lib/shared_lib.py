@@ -11,6 +11,8 @@ import xarray as xr
 import pandas as pd
 from tqdm import tqdm
 
+import numpy as np
+
 # Get the directory paths.
 ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 
@@ -18,6 +20,110 @@ PROP_DIR = os.path.join(ROOT_DIR, "prop")
 sys.path.append(PROP_DIR)
 import shared_prop as prop
 import writer_prop as writer_prop
+
+import os
+import stat
+import time
+
+
+def list_files_in_directory_from_file(file_path):
+    """
+    Lists the files in the directory containing the specified file and returns the message as a string.
+
+    Parameters:
+        file_path (str): The path to the file.
+
+    Returns:
+        str: A message with the list of files in the directory or an appropriate error message.
+    """
+    try:
+        # Get the directory from the file path
+        directory_path = os.path.dirname(file_path)
+        if not directory_path.strip():
+            directory_path = "."
+
+        # Check if the directory exists
+        if not os.path.isdir(directory_path):
+            return f"The directory '{directory_path}' does not exist."
+
+        # Get a list of files in the directory
+        files = os.listdir(directory_path)
+
+        # Filter out directories from the list
+        files = [
+            file for file in files if os.path.isfile(os.path.join(directory_path, file))
+        ]
+
+        # Create the message string
+        if files:
+            message = f"Files in '{directory_path}':\n"
+            message += "\n".join(f" - {file}" for file in files)
+        else:
+            message = f"No files found in '{directory_path}'"
+
+    except PermissionError:
+        message = f"Permission denied to access the directory '{directory_path}'."
+    except Exception as e:
+        message = f"An error occurred: {str(e)}"
+
+    return message
+
+
+def file_info(file_path):
+    """
+    Shows detailed information about a file on the disk.
+
+    Parameters:
+        file_path (str): The path to the file.
+
+    Returns:
+        str: A string containing detailed information about the file.
+    """
+    try:
+        # Get the file stats
+        file_stats = os.stat(file_path)
+
+        # Get the file mode (permissions)
+        file_mode = stat.filemode(file_stats.st_mode)
+
+        # Get the file size
+        file_size = file_stats.st_size
+
+        # Get the last access time
+        last_access_time = time.ctime(file_stats.st_atime)
+
+        # Get the last modification time
+        last_modification_time = time.ctime(file_stats.st_mtime)
+
+        # Get the last status change time
+        last_status_change_time = time.ctime(file_stats.st_ctime)
+
+        # Get the file owner's user ID
+        owner_user_id = file_stats.st_uid
+
+        # Get the file owner's group ID
+        owner_group_id = file_stats.st_gid
+
+        # Format the detailed information
+        info = (
+            f"File: {file_path}\n"
+            f"Permissions: {file_mode}\n"
+            f"Size: {file_size} bytes\n"
+            f"Last accessed: {last_access_time}\n"
+            f"Last modified: {last_modification_time}\n"
+            f"Last status change: {last_status_change_time}\n"
+            f"Owner user ID: {owner_user_id}\n"
+            f"Owner group ID: {owner_group_id}"
+        )
+
+        return info
+
+    except FileNotFoundError:
+        return f"The file '{file_path}' does not exist."
+    except PermissionError:
+        return f"Permission denied to access the file '{file_path}'."
+    except Exception as e:
+        return f"An error occurred: {str(e)}"
 
 
 def get_key_value(line):
@@ -124,6 +230,36 @@ def cf_coordinate_names(x, y, aux=False):
             f"[cf_coordinate_names ERR] invalid coordinate name combinations ({x},{y})"
         )
         raise
+
+
+def get_filename_without_extension(file_path):
+    """
+    Get the filename without the extension or path.
+
+    Args:
+        file_path (str): The full path of the file.
+
+    Returns:
+        str: The filename without its extension. If the filename is only an extension (e.g., ".csv"), an empty string is returned.
+
+    Example:
+        >>> get_filename_without_extension("/path/to/your/file.txt")
+        'file'
+        >>> get_filename_without_extension("/path/to/your/.csv")
+        ''
+    """
+    base_name = os.path.basename(
+        file_path
+    )  # Get the base name (filename with extension)
+
+    # Handle case where the file name is only an extension (e.g., ".csv")
+    if base_name.startswith(".") and base_name.count(".") == 1:
+        return ""
+
+    file_name, _ = os.path.splitext(
+        base_name
+    )  # Split the base name into name and extension
+    return file_name
 
 
 def get_geocsv_metadata_from_ds(ds):
@@ -242,7 +378,21 @@ def closest(lst, value):
     lst -- [required] list of the numbers
     value -- [required] value to find the closest list member for.
     """
-    return lst[min(range(len(lst)), key=lambda i: abs(lst[i] - value))]
+
+    # Convert the list to a NumPy array
+    lst_array = np.array(lst)
+
+    # Compute the absolute differences
+    diff = np.abs(lst_array - value)
+
+    # Find the index of the minimum difference
+    min_index = np.unravel_index(np.argmin(diff, axis=None), diff.shape)
+
+    # Get the closest value
+    closest_value = lst_array[min_index]
+    # lst[min(range(len(lst)), key=lambda i: abs(lst[i] - value))]
+
+    return closest_value
 
 
 def utc_now():
