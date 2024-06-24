@@ -825,7 +825,7 @@ def read_csv(
                 chunk
                 for chunk in tqdm(
                     pd.read_csv(
-                        data_file, chunksize=writer_prop.read_chunk_size, sep="\s+"
+                        data_file, chunksize=writer_prop.read_chunk_size, sep=r"\s+"
                     ),
                     desc="...loading data",
                 )

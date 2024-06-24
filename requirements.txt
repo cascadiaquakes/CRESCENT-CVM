@@ -1,6 +1,7 @@
 pyproj
 xarray
 netCDF4
+h5py
 matplotlib
 scipy
 tqdm

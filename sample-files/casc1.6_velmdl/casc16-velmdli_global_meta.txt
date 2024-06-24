@@ -40,7 +40,7 @@
 #        model uses an expanded data set.
 
 > model
-    model = casc1.6_velmdl,
+    model = casc1.6_velmdl
     title = P- and S-wave Seismic Velocity Models Incorporating the Cascadia Subduction Zone
     summary = P- and S-wave Seismic Velocity Models Incorporating the Cascadia Subduction Zone for 3D Earthquake Ground Motion simulations- Update for Open-File Report 2007-1348
     reference = Stephenson, Reitman, and Angster (2017)

@@ -306,7 +306,10 @@ def main():
                     else:
                         for attr_name, attr_value in var_dict[key].items():
                             if attr_name not in ["column", "dimensions", "variable"]:
-                                if attr_name not in reshaped_data[var].attrs:
+                                if (
+                                    attr_name not in reshaped_data[var].attrs
+                                    and attr_name not in xr_dset[var].encoding
+                                ):
                                     logger.info(
                                         f"[INFO] Added the missing {var} attribute {attr_name}: '{attr_value}'"
                                     )
