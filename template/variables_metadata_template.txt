@@ -41,7 +41,7 @@
 # standard_name: a CF-compliant standard name. Please consult the CF Standard Name Table
 # (https://cfconventions.org/Data/cf-standard-names/current/build/cf-standard-name-table.html).
 # long_name: Text that describes the variable more fully.
-# units: Variable's units
+#units: Variable's units
 
 > x 
     column = longitude1

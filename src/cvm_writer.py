@@ -7,7 +7,7 @@ import importlib
 import time
 
 """
-Output metadata and model files based on an input parameter file and a given data file. The output can be one more of the following:
+Output metadata and model files based on an input parameter file and a given CSV data file. The output can be one more of the following:
     -- Metadata in GeoCSV
     -- Metadata in JSON
     -- Model in GeoCSV
@@ -36,7 +36,7 @@ line_break = "\n"
 def usage():
     logger.info(
         f"""
-    Output metadata and model based on an input parameter file and a given data file. The output can be one or more of the following:
+    Output metadata and model based on an input parameter file and a given CSV data file. The output can be one or more of the following:
         -- Metadata in GeoCSV
         -- Metadata in JSON
         -- Model in GeoCSV
@@ -44,9 +44,8 @@ def usage():
 
     Call arguments:
         -h, --help: this message.
-        -m, --meta: [required] a Python parameter file based on the parameter template files under the template directory.
-                        The templates files are fully documented. The filename should have the ".py" extension and should not include "." 
-                        in the filename.
+        -m, --meta: [required] a text parameter file based on the parameter template files under the template directory.
+        -g, --global: [required] a text global parameter file based on the parameter template files under the template directory.
         -d, --data: [required] a CSV data filename with a header
         -o, --output: [required] the output filename without extension. The metadata output files will add "_metadata" to this output filename.
         -t, --output_types: [default netcdf] a comma separated string of output types. The valid output types are: "metadata", "geocsv", "netcdf"
@@ -62,7 +61,9 @@ def main():
     try:
         argv = sys.argv[1:]
         opts, args = getopt.getopt(
-            argv, "hm:d:o:t:", ["help", "meta=", "data=", "output=", "output_types="]
+            argv,
+            "hg:m:d:o:t:",
+            ["help", "global=", "meta=", "data=", "output=", "output_types="],
         )
     except getopt.GetoptError as err:
         # Print the error, and help information and exit:
@@ -72,6 +73,7 @@ def main():
 
     # Initialize the variables.
     meta_file = None
+    global_meta_file = None
     output = None
     data_file = None
     output_types = "netcdf"
@@ -86,7 +88,13 @@ def main():
                     f"[ERR] Invalid metadata file: {meta_file}. File not found!"
                 )
                 sys.exit(2)
-            params = lib.read_model_metadata(meta_file)
+        elif o in ("-g", "--global"):
+            global_meta_file = a
+            if not os.path.isfile(global_meta_file):
+                logger.error(
+                    f"[ERR] Invalid global metadata file: {global_meta_file}. File not found!"
+                )
+                sys.exit(2)
         elif o in ("-d", "--data"):
             data_file = a
         elif o in ("-o", "--output"):
@@ -102,11 +110,21 @@ def main():
         logger.error(f"[ERR] output file is required.")
         sys.exit(1)
 
+    # Global metadata file is required.
+    if global_meta_file is None:
+        usage()
+        logger.error(f"[ERR] global metadata file is required.")
+        sys.exit(1)
+    else:
+        params = lib.read_model_metadata(global_meta_file)
+
     # Metadata file is required.
     if meta_file is None:
         usage()
         logger.error(f"[ERR] metadata file is required.")
         sys.exit(1)
+    else:
+        params = lib.read_model_metadata(meta_file, params=params)
 
     # Data file is required.
     if data_file is None and ("netcdf" in output_types or "geocsv" in output_types):
@@ -133,14 +151,8 @@ def main():
             sys.exit(1)
         nc_format = writer_prop.netcdf_format[nc_format]
 
-    # Parse the metadata file.
-    if not os.path.isfile(meta_file):
-        logger.error(f"[ERR] metadata file '{meta_file}' not found!")
-        sys.exit(1)
-    else:
-        metadata_dict, metadata, var_dict, data_variables = meta_lib.get_metadata(
-            params
-        )
+    # Parse the metadata .
+    metadata_dict, metadata, var_dict, data_variables = meta_lib.get_metadata(params)
 
     # Initialize the timer.
     t0 = time.time()
@@ -181,14 +193,14 @@ def main():
                 logger.info(f"[{time_txt}] Created a grid for each variable")
 
                 # Create the Xarray DataFrame.
-                xr_df = meta_lib.build_xarray_dataframe(
+                xr_df = meta_lib.build_dataframe(
                     data_variables, coords, var_grid, metadata
                 )
                 t0, time_txt = lib.time_it(t0)
                 logger.info(f"[{time_txt}] Created the DataFrame")
 
                 # Convert the xr DataFrame to an xr Dataset
-                xr_dset = meta_lib.build_xarray_dataset(xr_df, coords, metadata)
+                xr_dset = meta_lib.build_dataset(xr_df, coords, metadata)
                 t0, time_txt = lib.time_it(t0)
                 logger.info(f"[{time_txt}] Converted the DataFrame to Dataset")
 

@@ -169,7 +169,7 @@ def get_key_value(line):
     return line_type, key, value
 
 
-def read_model_metadata(model_file):
+def read_model_metadata(model_file, params=dict()):
     """Get model parameters from a parameter file and convert it to a dictionary.
 
     Keyword arguments:
@@ -178,7 +178,7 @@ def read_model_metadata(model_file):
     with open(model_file, "r") as fp:
         data = fp.read()
         lines = data.split("\n")
-        params = dict()
+
         group_key = None
         subgroup_key = None
         for line in lines:

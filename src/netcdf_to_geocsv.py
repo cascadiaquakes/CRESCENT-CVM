@@ -38,9 +38,11 @@ def usage():
     Call arguments:
         -h, --help: this message.
         -i, --input: [required] the input nefiletCDF filename.
-        -g, --geocsv: [true/false, default false] output the GeoCSV. The output will have the same name as
+        -g, --geocsv: [true/false, default true] output the GeoCSV. The output will have the same name as
               the input file.
-        -m, --metadata: [true/false, default true] output metadata in JSON,
+        -c, --csv: [true/false, default false] output the CSV. The output will have the same name as
+              the input file.
+        -m, --metadata: [true/false, default false] output metadata in JSON,
               it will have the same filename as the input file.
 """
     )
@@ -51,7 +53,7 @@ def main():
     try:
         argv = sys.argv[1:]
         opts, args = getopt.getopt(
-            argv, "hg:m:i:", ["help", "geocsv=", "metadata=", "input="]
+            argv, "hc:g:m:i:", ["help", "csv=", "geocsv=", "metadata=", "input="]
         )
     except getopt.GetoptError as err:
         # Print the error, and help information and exit:
@@ -61,8 +63,9 @@ def main():
     # Initialize the variables.
     input_file = None
     output_file = None
-    do_geocsv = False
+    do_geocsv = True
     do_metadata = False
+    do_csv = False
     for o, a in opts:
         if o in ("-h", "--help"):
             usage()
@@ -82,6 +85,15 @@ def main():
             else:
                 usage()
                 logger.error(f"[ERR] invalid -g option {a}.")
+                sys.exit(1)
+        elif o in ("-c", "--csv"):
+            if a.lower() == "true":
+                do_csv = True
+            elif a.lower() == "false":
+                do_csv = False
+            else:
+                usage()
+                logger.error(f"[ERR] invalid -c option {a}.")
                 sys.exit(1)
         elif o in ("-m", "--metadata"):
             if a.lower() == "true":
@@ -117,12 +129,22 @@ def main():
         logger.info(f"[INFO] {input_file} is a netCDF file")
         # Convert netCDF to GeoCSV.
         if do_geocsv:
-            geocsv_file = f"{output_file}{prop.extension['geocsv']}"
+            # Should we avoid file extension with csv?
+            if do_csv:
+                geocsv_file = f"{output_file}{prop.extension['ggeocsv']}"
+            else:
+                geocsv_file = f"{output_file}{prop.extension['geocsv']}"
+
             metadata, data = convert_lib.netcdf_to_geocsv(input_file)
             with open(geocsv_file, "w") as outfile:
                 outfile.write(f"{metadata}\n{data}")
             logger.info(f"[INFO] Saved the GeoCSV file: {geocsv_file}")
-
+        # Convert netCDF to CSV.
+        if do_csv:
+            csv_file = f"{output_file}{prop.extension['csv']}"
+            with open(csv_file, "w") as outfile:
+                outfile.write(f"{data}")
+            logger.info(f"[INFO] Saved the CSV file: {csv_file}")
         # Save metadata as JSON
         if do_metadata:
             output_json = convert_lib.json_metadata(input_file)

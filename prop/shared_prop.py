@@ -6,6 +6,8 @@ delimiter = "|"
 na_rep = "nan"
 extension = {
     "geocsv": ".csv",
+    "ggeocsv": ".gcsv",
+    "csv": ".csv",
     "netcdf": ".nc",
     "json": ".json",
     "nonlinloc": ".txt",

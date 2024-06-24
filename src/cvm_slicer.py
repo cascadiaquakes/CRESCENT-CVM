@@ -1096,6 +1096,7 @@ def main():
                                                     sliced_data,
                                                     vmin=vmin,
                                                     vmax=vmax,
+                                                    title=f"{base_title}, {plot_var} at {sliced_data.depth.values} {sliced_data.depth.attrs['units']}",
                                                 )
                                                 if len(data_var) <= 1:
                                                     plot_var = "back"

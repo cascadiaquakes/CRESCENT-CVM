@@ -20,5 +20,6 @@ netcdf_format = {
 }
 
 valid_output_types = ["metadata", "geocsv", "netcdf"]
+valid_h5_output_types = ["metadata", "hdf5"]
 
 read_chunk_size = 10000

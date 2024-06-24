@@ -183,7 +183,7 @@ def subsetter(ds, limits):
     return sliced_data, warnings
 
 
-def gmap(plot_var, cmap, gmap_limits, sliced_data, vmin=None, vmax=None):
+def gmap(plot_var, cmap, gmap_limits, sliced_data, vmin=None, vmax=None, title=None):
     """
     Geographical display of a dataset.
 
@@ -256,6 +256,8 @@ def gmap(plot_var, cmap, gmap_limits, sliced_data, vmin=None, vmax=None):
         )
     )
     ax.coastlines(linewidth=1)
+    if title is not None:
+        plt.title(title)
     plt.tight_layout()
     plt.show()
 

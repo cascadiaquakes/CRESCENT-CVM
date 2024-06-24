@@ -1,0 +1,157 @@
+# The following parameters define the model parameters for constructing the metadata.
+# All parameters should follow the CF Metadata Conventions (https://cfconventions.org/).
+
+# Rules:
+# Blank lines and lines starting with # are ignored
+# Each parameter should be defined on a new line with key=value format (quotes are not required)
+# Lines starting with - indicate a new parameter definition
+# Lines starting with > indicate a new parameter grouping.
+#    - Each parameter group should contain one or more parameter definition (key=value) on a new line 
+#    - The leading and trailing blank spaces are ignored
+# Lines starting with >> indicate a new parameter sub-grouping.
+#    - Each parameter sub-group should be nested under a parameter group
+#    - Each parameter sub-group should contain one or more parameter definition (key=value) on a new line 
+#    - The leading and trailing blank spaces are ignored
+
+
+# netCDF output format:
+# should be one of those defined in shared_prop.py
+
+- netcdf_format = NETCDF4C
+
+# Groups:
+# For HDF5 formats only. Ignored by netCDF.
+# By default, the model values are stored as uniform grids within the "volumes" group.
+#             The elevation of surfaces are stored within the "surfaces" group.
+
+> groups
+     volumes = volumes
+     surfaces = surfaces
+
+# Model:
+# name : The model name (no spaces).
+# title: A short title for the model.
+# summary: A very short description for the model.
+# reference: A short reference including author names and date.
+# reference_pid: Persistent identifier for the model. Usually the reference's DOI.
+# data_revision: Data revision. This refers to the changes in the initial data. 
+#        Only changes to data creates a revision.
+# version: Data version. This goes beyond changes to data. For example, if the revised
+#        model uses an expanded data set.
+
+> model
+    model = casc1.6_velmdl,
+    title = P- and S-wave Seismic Velocity Models Incorporating the Cascadia Subduction Zone
+    summary = P- and S-wave Seismic Velocity Models Incorporating the Cascadia Subduction Zone for 3D Earthquake Ground Motion simulations- Update for Open-File Report 2007-1348
+    reference = Stephenson, Reitman, and Angster (2017)
+    reference_pid = doi:10.3133/ofr20171152
+    revision = r0.1
+    Version = v0.0
+
+
+# Repository:
+# repository_pid:  Persistent identifier for the model in the repository. 
+#        Usually the repository provides a DOI.
+
+> repository
+    repository_pid = doi:1234.567890
+
+
+# Corresponding author:
+# author_name: Name of the author
+# author_email: Author's email.
+# author_institution: Author's institution.
+# author_url: Author's website
+
+> corresponding_author
+    author_name = William J. Stephenson
+    author_email = manochehr.bahavar@earthscope.org
+    author_institution = USGS
+    author_url = https://pubs.usgs.gov/publication/ofr20171152
+
+
+# Geospatial limits
+# specifies the geographical area covered by the dataset.
+#
+# NOTE: For 2D models, set vertical_min and vertical_max to None
+#
+# geospatial
+#    geospatial_lon_min: lower longitude limit
+#    geospatial_lon_max: upper longitude limit
+#    geospatial_lon_units: units
+#    geospatial_lon_resolution: spacing resolution
+#
+#    geospatial_lat_min: lower latitude limit
+#    geospatial_lat_max: upper latitude limit
+#    geospatial_lat_units: units
+#    geospatial_lat_resolution: spacing resolution
+#
+#    geospatial_vertical_min: minimum z
+#    geospatial_vertical_max: maximum z
+#    geospatial_vertical_units: units
+#    geospatial_vertical_positive: positive direction
+#    geospatial_vertical_units: Variable's units
+
+> geospatial
+    geospatial_lon_min = -130.1
+    geospatial_lon_max = -121.0
+    geospatial_on_units = degrees_east
+    geospatial_on_resolution = 1
+    geospatial_lat_min = 40.2
+    geospatial_lat_max = 50.0
+    geospatial_lat_units = degrees_north
+    geospatial_lat_resolution = 1
+    geospatial_vertical_min = 0
+    geospatial_vertical_max = 60000.0
+    geospatial_vertical_units = m
+    geospatial_vertical_positive = down
+
+
+# Miscellaneous: 
+# Any additional parameters beyond those 
+# identified below, will be included as additional global attribute
+#
+# keywords: Keywords for the model.
+# acknowledgment: Acknowledgment
+# history: History of changes.
+# comments: Any comments on the model.
+# data_layout: specifies the layout of the data in the file and can take two possible values:
+#    vertex for vertex-based layout (values are specified at vertices)
+#    cell for cell-based layout (values are specified at the centers of grid cells)
+# Currently, the CVM-Tools support vertex-based values.
+
+> global_attrs 
+    keywords = seismic,tomography,shearwave,swave,elasticwaveform,CascadiaSubductionZone
+    acknowledgment = Model from USGS Open-File Report 2007-1348
+    history = [2024-01-18] CRESCENT Format conversion tool
+    comments = model converted to netCDF by CRESCENT CVM
+    data_layout = vertex
+
+# Grid mapping
+# A recognized grid mapping name, for more information see:
+# https://cfconventions.org/cf-conventions/cf-conventions.html#appendix-grid-mappings
+#
+# Currently supporting:
+# latitude_longitude -- This grid mapping defines the canonical 2D geographical coordinate 
+#        system based upon latitude and longitude coordinates. 
+# mercator -- Mercator
+#
+#The grid_mapping_name parameter should be consistent with the x description below.
+
+- grid_mapping_name = transverse_mercator
+
+
+# The Universal Transverse Mercator zone:
+#
+# zone: The UTM zone to use when converting to/from latitude longitude
+# ellipsoid: Ellipsoid reference
+
+- utm_zone = 10
+
+
+# The Ellipsoid reference:
+#
+#ellipsoid: Ellipsoid reference
+
+- ellipsoid = WGS84
+

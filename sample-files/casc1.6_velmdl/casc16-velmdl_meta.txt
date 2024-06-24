@@ -13,7 +13,14 @@
 #    - Each parameter sub-group should contain one or more parameter definition (key=value) on a new line 
 #    - The leading and trailing blank spaces are ignored
 
-
+# DataSet group:
+# This parameter is required for HDF5 output files only and it will be used, if provide, to create a
+# subgroup under the root group for the dataset.
+# datasets represented by this metadata file
+# NOTE: An empty dataset_group is not allowed.
+# NOTE: Duplicate dataset_group may result in variable conflicts and code failure.
+#
+- dataset_group = velocity
 
 # Delimiter:
 # The delimiter used to separate data columns.
@@ -26,136 +33,6 @@
     geocsv = |
 
 
-# netCDF output format:
-# should be one of those defined in shared_prop.py
-
-- netcdf_format = NETCDF4C
-
-
-# Model:
-# name : The model name (no spaces).
-# title: A short title for the model.
-# summary: A very short description for the model.
-# reference: A short reference including author names and date.
-# reference_pid: Persistent identifier for the model. Usually the reference's DOI.
-# data_revision: Data revision. This refers to the changes in the initial data. 
-#        Only changes to data creates a revision.
-# version: Data version. This goes beyond changes to data. For example, if the revised
-#        model uses an expanded data set.
-
-> model
-    model = casc1.6_velmdl,
-    title = P- and S-wave Seismic Velocity Models Incorporating the Cascadia Subduction Zone
-    summary = P- and S-wave Seismic Velocity Models Incorporating the Cascadia Subduction Zone for 3D Earthquake Ground Motion simulations- Update for Open-File Report 2007-1348
-    reference = Stephenson, Reitman, and Angster (2017)
-    reference_pid = doi:10.3133/ofr20171152
-    revision = r0.1
-    Version = v0.0
-
-
-# Repository:
-# repository_pid:  Persistent identifier for the model in the repository. 
-#        Usually the repository provides a DOI.
-
-> repository
-    repository_pid = doi:1234.567890
-
-
-# Corresponding author:
-# author_name: Name of the author
-# author_email: Author's email.
-# author_institution: Author's institution.
-# author_url: Author's website
-
-> corresponding_author
-    author_name = William J. Stephenson
-    author_email = manochehr.bahavar@earthscope.org
-    author_institution = USGS
-    author_url = https://pubs.usgs.gov/publication/ofr20171152
-
-
-# Geospatial limits
-# specifies the geographical area covered by the dataset.
-#
-# NOTE: For 2D models, set vertical_min and vertical_max to None
-#
-# geospatial
-#    geospatial_lon_min: lower longitude limit
-#    geospatial_lon_max: upper longitude limit
-#    geospatial_lon_units: units
-#    geospatial_lon_resolution: spacing resolution
-#
-#    geospatial_lat_min: lower latitude limit
-#    geospatial_lat_max: upper latitude limit
-#    geospatial_lat_units: units
-#    geospatial_lat_resolution: spacing resolution
-#
-#    geospatial_vertical_min: minimum z
-#    geospatial_vertical_max: maximum z
-#    geospatial_vertical_units: units
-#    geospatial_vertical_positive: positive direction
-#    geospatial_vertical_units: Variable's units
-
-> geospatial
-    geospatial_lon_min = -130.1
-    geospatial_lon_max = -121.0
-    geospatial_on_units = degrees_east
-    geospatial_on_resolution = 1
-    geospatial_lat_min = 40.2
-    geospatial_lat_max = 50.0
-    geospatial_lat_units = degrees_north
-    geospatial_lat_resolution = 1
-    geospatial_vertical_min = 0
-    geospatial_vertical_max = 60000.0
-    geospatial_vertical_units = m
-    geospatial_vertical_positive = down
-
-
-# Miscellaneous: 
-# Any additional parameters beyond those 
-# identified below, will be included as additional global attribute
-#
-# keywords: Keywords for the model.
-# acknowledgment: Acknowledgment
-# history: History of changes.
-# comments: Any comments on the model.
-
-> global_attrs 
-    keywords = seismic,tomography,shearwave,swave,elasticwaveform,CascadiaSubductionZone
-    acknowledgment = Model from USGS Open-File Report 2007-1348
-    history = [2024-01-18] CRESCENT Format conversion tool
-    comments = model converted to netCDF by CRESCENT CVM
-
-# Grid mapping
-# A recognized grid mapping name, for more information see:
-# https://cfconventions.org/cf-conventions/cf-conventions.html#appendix-grid-mappings
-#
-# Currently supporting:
-# latitude_longitude -- This grid mapping defines the canonical 2D geographical coordinate 
-#        system based upon latitude and longitude coordinates. 
-# mercator -- Mercator
-#
-#The grid_mapping_name parameter should be consistent with the x description below.
-
-- grid_mapping_name = transverse_mercator
-
-
-# The Universal Transverse Mercator zone:
-#
-# zone: The UTM zone to use when converting to/from latitude longitude
-# ellipsoid: Ellipsoid reference
-
-- utm_zone = 10
-
-
-# The Ellipsoid reference:
-#
-#ellipsoid: Ellipsoid reference
-
-- ellipsoid = WGS84
-
-
-
 # The primary X coordinate (could be longitude for the 
 # geographic coordinate system, or easting for UTM projection, etc.:
 #
@@ -164,7 +41,7 @@
 # standard_name: a CF-compliant standard name. Please consult the CF Standard Name Table
 # (https://cfconventions.org/Data/cf-standard-names/current/build/cf-standard-name-table.html).
 # long_name: Text that describes the variable more fully.
-#units: Variable's units
+# units: Variable's units
 
 > x 
     column = easting
@@ -264,6 +141,15 @@
 # (https://cfconventions.org/Data/cf-standard-names/docs/guidelines.html).
 # long_name: Text that describes the variable more fully.
 # display_name: Text to use for variable display. 
+# data_source:  describes the origin of the data for this variable:
+#       If the data is derived from observations, the source attribute should be set to “data-derived.”
+#       If the data is derived from an empirical formula, the source attribute should indicate how the variable was derived.
+#
+#       For example:
+#            >> vp
+#               data_source = data-derived
+#            >> vs
+#               data_source = assumed to follow vp as vs = vp / 3
 
 > variables 
     >> vp
@@ -273,6 +159,7 @@
         long_name = P-wave velocity
         display_name = P Velocity (m/s)
         units = m.s-1
+        data_source = data-derived
     >> vs
         column = vs
         variable = vs
@@ -280,3 +167,4 @@
         long_name = Shear-wave velocity
         display_name = S Velocity (m/s)
         units = m.s-1
+        data_source = data-derived
