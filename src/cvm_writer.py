@@ -167,7 +167,7 @@ def main():
             logger.error(f"[ERR] data file '{data_file}' not found!")
             sys.exit(1)
         else:
-            df = meta_lib.read_csv(
+            df, params = meta_lib.read_csv(
                 data_file,
                 params,
             )
