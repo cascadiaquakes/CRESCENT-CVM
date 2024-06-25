@@ -268,6 +268,10 @@ def main():
                 x2_data.shape == expected_2d_shape
                 and y2_data.shape == expected_2d_shape
             ):
+                # Extract the existing attributes.
+                x2_attrs = xr_dset.coords[coords["x2"]["var"]].attrs
+                y2_attrs = xr_dset.coords[coords["y2"]["var"]].attrs
+
                 # Adding auxiliary coordinates directly to the dataset
                 xr_dset.coords[coords["x2"]["var"]] = (
                     coords["y"]["var"],
@@ -277,6 +281,11 @@ def main():
                     coords["y"]["var"],
                     coords["x"]["var"],
                 ), y2_data
+
+                # Reassign the existing attributes.
+                xr_dset.coords[coords["x2"]["var"]].attrs = x2_attrs
+                xr_dset.coords[coords["y2"]["var"]].attrs = y2_attrs
+
             else:
                 raise ValueError(
                     "The shape of auxiliary coordinates does not match the expected dimensions."
