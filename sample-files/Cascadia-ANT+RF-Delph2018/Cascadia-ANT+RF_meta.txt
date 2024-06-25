@@ -44,7 +44,7 @@
 # units: Variable's units
 
 > x 
-    column = longitude1
+    column = longitude
     variable = longitude
     standard_name = longitude
     long_name = Longitude; positive east
