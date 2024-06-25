@@ -177,7 +177,7 @@ def main():
 
             # MB Need to add a check to make sure the same x, y, z variable names are used.
             # Read the CSV data to Pandas DataFrame.
-            df = meta_lib.read_csv(
+            df, _params = meta_lib.read_csv(
                 data_file_list[file_index],
                 _params,
             )
