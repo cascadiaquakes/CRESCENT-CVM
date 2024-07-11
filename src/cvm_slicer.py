@@ -59,6 +59,18 @@ def usage():
 import os
 
 
+def custom_formatter(x):
+    """
+    Custom formatter function
+    If the value is close enough to zero (including -0.0), format it as '0'.
+    Otherwise, use the default formatting.
+    """
+    if abs(x) < 1e-12:  # 1e-12 is used as a threshold for floating-point comparison
+        return "0"
+    else:
+        return f"{x}"
+
+
 def format_numbers(numbers, digits=2):
     """
     Formats a single number or a list/tuple of numbers to a specified number of decimal places.
@@ -736,6 +748,35 @@ def main():
                                         ax.set_ylabel(new_label)
                                         if exaggeration > 0:
                                             plt.gca().set_aspect(exaggeration)
+
+                                    # Set the depth limits for display.
+                                    plt.ylim(-depth[1], -depth[0])
+
+                                    # plt.gca().invert_yaxis()  # Invert the y-axis to show depth increasing downwards
+                                    # Getting current y-axis tick labels
+                                    labels = [
+                                        item.get_text()
+                                        for item in plt.gca().get_yticklabels()
+                                    ]
+                                    y_ticks = plt.gca().get_yticks()
+
+                                    # Assuming the labels are numeric, convert them to float, multiply by -1, and set them back.
+                                    # If labels are not set or are custom, you might need to adjust this part.
+                                    new_labels = [
+                                        (
+                                            custom_formatter(
+                                                -1.0 * float(label.replace("−", "-"))
+                                            )
+                                            if label
+                                            else 0.0
+                                        )
+                                        for label in labels
+                                    ]  # Handles empty labels as well
+
+                                    # Setting new labels ( better to explicitly set both the locations of the ticks and their labels using
+                                    # set_yticks along with set_yticklabels.)
+                                    plt.gca().set_yticks(y_ticks)
+                                    plt.gca().set_yticklabels(new_labels)
 
                                     plt.xticks(
                                         rotation=45
