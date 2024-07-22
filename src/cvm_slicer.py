@@ -281,7 +281,7 @@ def main():
                 if var not in ds:
                     logger.error(f"[ERR] Missing data for variable {var}")
                     sys.exit(3)
-                elif ds[var].data.size <= 1:
+                elif ds[var].data.size < 1:
                     logger.error(f"[ERR] Missing data for variable {var}")
                     sys.exit(3)
                 coordinate_values[var] = list(ds[var].data)
@@ -1137,7 +1137,7 @@ def main():
                                                     sliced_data,
                                                     vmin=vmin,
                                                     vmax=vmax,
-                                                    title=f"{base_title}, {plot_var} at {sliced_data.depth.values} {sliced_data.depth.attrs['units']}",
+                                                    title=f"{base_title}, {plot_var} at {sliced_data[slice_dir].values} {sliced_data[slice_dir].attrs['units']}",
                                                 )
                                                 if len(data_var) <= 1:
                                                     plot_var = "back"
