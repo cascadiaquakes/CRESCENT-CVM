@@ -20,7 +20,7 @@
 # NOTE: An empty dataset_group is not allowed.
 # NOTE: Duplicate dataset_group may result in variable conflicts and code failure.
 #
-- dataset_group = 
+- dataset_group = depth_gt_40km
 
 # Delimiter:
 # The delimiter used to separate data columns.
@@ -29,7 +29,7 @@
 # geocsv: delimiter for the output GeoCSV file(S).
 
 > delimiter
-    data = 
+    data = ,
     geocsv = |
 
 
