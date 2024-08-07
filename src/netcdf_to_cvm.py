@@ -269,8 +269,10 @@ def main():
                 and y2_data.shape == expected_2d_shape
             ):
                 # Extract the existing attributes.
-                x2_attrs = xr_dset.coords[coords["x2"]["var"]].attrs
-                y2_attrs = xr_dset.coords[coords["y2"]["var"]].attrs
+                x2_attrs = None
+                if coords["x2"]["var"] in xr_dset.coords:
+                    x2_attrs = xr_dset.coords[coords["x2"]["var"]].attrs
+                    y2_attrs = xr_dset.coords[coords["y2"]["var"]].attrs
 
                 # Adding auxiliary coordinates directly to the dataset
                 xr_dset.coords[coords["x2"]["var"]] = (
@@ -283,8 +285,9 @@ def main():
                 ), y2_data
 
                 # Reassign the existing attributes.
-                xr_dset.coords[coords["x2"]["var"]].attrs = x2_attrs
-                xr_dset.coords[coords["y2"]["var"]].attrs = y2_attrs
+                if x2_attrs is not None:
+                    xr_dset.coords[coords["x2"]["var"]].attrs = x2_attrs
+                    xr_dset.coords[coords["y2"]["var"]].attrs = y2_attrs
 
             else:
                 raise ValueError(
