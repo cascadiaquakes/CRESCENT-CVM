@@ -21,12 +21,18 @@
 
 # Groups:
 # For HDF5 formats only. Ignored by netCDF.
-# By default, the model values are stored as uniform grids within the "volumes" group.
-#             The elevation of surfaces are stored within the "surfaces" group.
+# Under HDF5, the model values are stored as uniform grids within the "volumes" group.
+# The elevation of surfaces are stored within the "surfaces" group.
+# Use the groups parameter to assign your own group names:
+# For example, we set the main groups as MODEL and SURFACES:
+#
+# > groups
+#      volumes = MODEL
+#      surfaces = SURFACES
 
 > groups
-     volumes = volumes
-     surfaces = surfaces
+     volumes = MODEL
+     surfaces = SURFACES
 
 # Model:
 # model : The model name (no spaces).
