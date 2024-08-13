@@ -34,12 +34,14 @@ line_break = "\n"
 def usage():
     logger.info(
         f"""
-    Input  a netCDF file to generate an output as HDF5 file.
+    Convert a CVM netCDF file to CVM HDF5 format.
 
     Call arguments:
         -h, --help: this message.
-        -d, --data: [required] a netCDF data filename 
-        -o, --output: [required] the output filename without extension.
+        -i, --input: [required] a CVM netCDF model filename.
+        -o, --output: [required] the HDF5 output filename without extension.
+        -g, --group: [default: MODEL] The main HDF5 group to store the netCDF data under.
+        -s, --subgroup [default: ] The subgroup under the above group to store the netCDF data under.
         -v, --verbose: [default False] turns the verbose mode on no parameter required.
 """
     )
@@ -53,65 +55,92 @@ def copy_attrs(nc_obj, h5_obj):
         h5_obj.attrs[attr_name] = nc_obj.getncattr(attr_name)
 
 
-def netcdf_to_hdf5(netcdf_file, hdf5_file):
-    # Open the netCDF file
-    with nc.Dataset(netcdf_file, "r") as src:
-        # Create a new HDF5 file
-        with h5py.File(hdf5_file, "w") as dst:
-            # Copy global attributes
-            copy_attrs(src, dst)
+def convert_netcdf_to_hdf5(netcdf_file, hdf5_file, group_name, subgroup_name):
+    # Open the NetCDF file
+    with nc.Dataset(netcdf_file, "r") as nc_data:
+        # Open the HDF5 file
+        with h5py.File(hdf5_file, "w") as hdf:
+            # Create the main group
+            main_group = hdf.require_group(group_name)
 
-            # Create the MODEL group
-            model_group = dst.create_group("MODEL")
+            # Create or access the specified subgroup within the group
+            if len(subgroup_name) > 0:
+                subgroup = main_group.require_group(subgroup_name)
+            else:
+                subgroup = main_group
 
-            # Copy variables and data from netCDF to HDF5 under MODEL group
-            for var_name, var_data in src.variables.items():
-                if (
-                    var_name in src.dimensions
-                ):  # skip dimensions, we'll handle them separately
-                    continue
-                data = var_data[:]
-                # Create the dataset in HDF5 with the same shape and data type as the NetCDF variable
-                model_var = model_group.create_dataset(
-                    var_name, data=data, chunks=True, compression="gzip"
-                )
-                copy_attrs(var_data, model_var)
-                # Ensure the dimension order is maintained
-                model_var.dims.create_scale(model_var, var_name)
-                for i, dim in enumerate(var_data.dimensions):
-                    model_var.dims[i].attach_scale(model_var)
-                if verbose:
-                    logger.info(
-                        f"[INFO] Copied variable '{var_name}' with shape {data.shape}"
+            group_subgroup = subgroup.name
+
+            # Copy dimensions from NetCDF to HDF5, including actual values
+            dim_mapping = {}
+            for dim_name, dim in nc_data.dimensions.items():
+                if dim_name not in subgroup:
+                    # Create dataset for the dimension using actual values
+                    if (
+                        dim_name in nc_data.variables
+                    ):  # Check if dimension has a corresponding variable
+                        dim_data = nc_data.variables[dim_name][:]
+                    else:
+                        dim_data = np.arange(
+                            dim.size
+                        )  # Fallback to indices if no variable is found
+
+                    dim_dataset = subgroup.create_dataset(dim_name, data=dim_data)
+                    dim_dataset.attrs["units"] = (
+                        nc_data.variables[dim_name].units
+                        if dim_name in nc_data.variables
+                        and hasattr(nc_data.variables[dim_name], "units")
+                        else ""
                     )
-
-                # Verification: Read back the data from HDF5 and compare with original
-                read_back_data = model_var[:]
-                if np.array_equal(data, read_back_data):
-                    logger.info(
-                        f"[INFO] Data for variable '{var_name}' matches between netCDF and HDF5."
+                    dim_dataset.attrs["long_name"] = (
+                        nc_data.variables[dim_name].long_name
+                        if dim_name in nc_data.variables
+                        and hasattr(nc_data.variables[dim_name], "long_name")
+                        else ""
                     )
+                    dim_mapping[dim_name] = dim_dataset
                 else:
                     logger.warning(
-                        f"[WARN] Data mismatch for variable '{var_name}' between netCDF and HDF5."
+                        f"[WARN] Dimension '{dim_name}' already exists in the subgroup '{subgroup_name}'. Skipping."
                     )
-                    max_difference = np.max(np.abs(data - read_back_data))
-                    logger.warning(f"[WARN] Max difference: {max_difference}")
+                    dim_mapping[dim_name] = subgroup[dim_name]
 
-            # Copy dimensions
-            for dim_name in src.dimensions:
-                dim_data = src.variables[dim_name][:]
-                dim_dataset = model_group.create_dataset(dim_name, data=dim_data)
-                copy_attrs(src.variables[dim_name], dim_dataset)
-                if verbose:
-                    logger.info(
-                        f"[INFO] Copied dimension '{dim_name}' with data: {dim_data[:5]}..."
+            # Copy variables and their attributes, respecting dimension order
+            for var_name, var in nc_data.variables.items():
+                if var_name not in subgroup:
+                    data = var[:]
+                    dim_names = var.dimensions
+                    hdf_var = subgroup.create_dataset(
+                        var_name, data=data, compression="gzip", shape=data.shape
                     )
 
-            # Create the surface elevation group
-            dst.create_group("SURFACES")
+                    # Copy variable attributes
+                    for attr_name in var.ncattrs():
+                        hdf_var.attrs[attr_name] = var.getncattr(attr_name)
 
-            logger.info(f"[INFO] Converted {netcdf_file} to {hdf5_file}")
+                    # Link the dimensions to the dataset
+                    for i, dim_name in enumerate(dim_names):
+                        if i == 0:
+                            # Create the scale for the first dimension
+                            subgroup[dim_name].make_scale(dim_name)
+                        hdf_var.dims[i].attach_scale(subgroup[dim_name])
+                else:
+                    logger.warning(
+                        f"[WARN] Variable '{var_name}' already exists in the subgroup '{subgroup_name}'. Skipping."
+                    )
+
+            # Copy global attributes from NetCDF to HDF5
+            for attr_name in nc_data.ncattrs():
+                if attr_name not in subgroup.attrs:
+                    subgroup.attrs[attr_name] = nc_data.getncattr(attr_name)
+                else:
+                    logger.warning(
+                        f"[WARN] Global attribute '{attr_name}' already exists in the subgroup '{subgroup_name}'. Skipping."
+                    )
+
+    logger.info(
+        f"[INFO] Conversion from {netcdf_file} to {hdf5_file} under '{group_subgroup}' completed successfully."
+    )
 
 
 if __name__ == "__main__":
@@ -120,8 +149,8 @@ if __name__ == "__main__":
         argv = sys.argv[1:]
         opts, args = getopt.getopt(
             argv,
-            "hd:o:v",
-            ["help", "data=", "output=", "verbose"],
+            "hi:g:,s:o:v",
+            ["help", "input=", "group=", "subgroup=", "output=", "verbose"],
         )
     except getopt.GetoptError as err:
         # Print the error, and help information and exit:
@@ -131,14 +160,20 @@ if __name__ == "__main__":
 
     # Initialize the variables.
     output = None
-    data_file = None
+    input = None
     verbose = False
+    group = "MODEL"
+    subgroup = ""
     for o, a in opts:
         if o in ("-h", "--help"):
             usage()
             sys.exit()
-        elif o in ("-d", "--data"):
-            data_file = a
+        elif o in ("-i", "--input"):
+            input = a
+        elif o in ("-g", "--group"):
+            group = a
+        elif o in ("-s", "--subgroup"):
+            subgroup = a
         elif o in ("-o", "--output"):
             output = a
         elif o in ("-v", "--verbose"):
@@ -146,31 +181,37 @@ if __name__ == "__main__":
         else:
             assert False, "unhandled option"
 
+    # The input file is required.
+    if input is None:
+        usage()
+        logger.error(f"[ERR] data file is required.")
+        sys.exit(1)
+    else:
+        netcdf_file = input
+
+    # Figure out the input's file type.
+    file_type = lib.check_file_type(netcdf_file)
+
+    if file_type["engine"] == "netcdf" and file_type["valid"] == True:
+        logger.info(f"[INFO] {netcdf_file} is a netCDF file")
+    else:
+        usage()
+        logger.error(
+            f"[ERR] bad input file type of {file_type['engine']} for {netcdf_file}."
+        )
+        sys.exit(1)
+
     # The output file is required.
     if output is None:
         usage()
         logger.error(f"[ERR] output file is required.")
         sys.exit(1)
     hdf5_file = output
+    # Add the h5 extension if missing.
     if not hdf5_file.endswith(".h5"):
         hdf5_file = f"{output}.h5"
-
-    # Data file is required.
-    if data_file is None:
-        usage()
-        logger.error(f"[ERR] data file is required.")
-        sys.exit(1)
-    else:
-        data_file_list = data_file.strip().split(",")
-    netcdf_file = data_file_list[0]
 
     # Initialize the timer.
     t0 = time.time()
 
-    # Figure out the input's file type.
-    file_type = lib.check_file_type(data_file)
-
-    if file_type["engine"] == "netcdf" and file_type["valid"] == True:
-        logger.info(f"[INFO] {data_file} is a netCDF file")
-
-    netcdf_to_hdf5(netcdf_file, hdf5_file)
+    convert_netcdf_to_hdf5(netcdf_file, hdf5_file, group, subgroup)
