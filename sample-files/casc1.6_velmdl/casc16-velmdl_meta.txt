@@ -17,10 +17,11 @@
 # This parameter is required for HDF5 output files only and it will be used, if provide, to create a
 # subgroup under the root group for the dataset.
 # datasets represented by this metadata file
-# NOTE: An empty dataset_group is not allowed.
+# NOTE: An empty dataset_group will place the data under the main group.
 # NOTE: Duplicate dataset_group may result in variable conflicts and code failure.
-#
-- dataset_group = velocity
+# 
+- dataset_group =  VELOCITY
+
 
 # Delimiter:
 # The delimiter used to separate data columns.
