@@ -140,10 +140,10 @@ def create_hdf5(
 
         # Create volumes group for 3D data if there is any 3D data
         if data_dict_3d:
-            root_group = "MODEL"
+            root_group = "volumes"
             if "groups" in global_params:
-                if "MODEL" in global_params["groups"]:
-                    root_group = global_params["groups"]["MODEL"]
+                if "volumes" in global_params["groups"]:
+                    root_group = global_params["groups"]["volumes"]
             volumes_group = f.create_group(root_group)
 
             # Add 3D data variables to the volumes group
@@ -273,10 +273,10 @@ def create_hdf5(
         # Create surfaces group for 2D data if there is any 2D data
         if data_dict_2d:
 
-            root_group = "SURFACES"
+            root_group = "surfaces"
             if "groups" in global_params:
-                if "SURFACES" in global_params["groups"]:
-                    root_group = global_params["groups"]["SURFACES"]
+                if "surfaces" in global_params["groups"]:
+                    root_group = global_params["groups"]["surfaces"]
 
             surfaces_group = f.create_group(root_group)
             # Add 2D data variables to the root_group group
