@@ -210,56 +210,67 @@ def gmap(plot_var, cmap, gmap_limits, sliced_data, vmin=None, vmax=None, title=N
         ccrs.PlateCarree(),
     )
     # Plotting using Matplotlib
-    if vmin and vmax:
-        cf = sliced_data[plot_var].plot(
-            x="longitude",
-            y="latitude",
-            transform=ccrs.PlateCarree(),
-            cmap=color,
-            add_colorbar=True,
-            vmin=vmin,
-            vmax=vmax,
-        )
-    else:
-        cf = sliced_data[plot_var].plot(
-            x="longitude",
-            y="latitude",
-            transform=ccrs.PlateCarree(),
-            cmap=color,
-            add_colorbar=True,
-        )
+    try:
+        _x = sliced_data[plot_var]["longitude"]
+        nan_count = np.isnan(_x).sum().item()
+        message = f"Number of NaN values in  longitude: {nan_count}"
+        _y = sliced_data[plot_var]["latitude"]
+        nan_count = np.isnan(_x).sum().item()
+        message = f"{message}\nNumber of NaN values in longitude: {nan_count}"
+        if vmin and vmax:
+            cf = sliced_data[plot_var].plot(
+                x="longitude",
+                y="latitude",
+                transform=ccrs.PlateCarree(),
+                cmap=color,
+                add_colorbar=True,
+                vmin=vmin,
+                vmax=vmax,
+            )
+        else:
+            cf = sliced_data[plot_var].plot(
+                x="longitude",
+                y="latitude",
+                transform=ccrs.PlateCarree(),
+                cmap=color,
+                add_colorbar=True,
+            )
 
-    # Plot lat/lon grid
-    gl = ax.gridlines(
-        crs=ccrs.PlateCarree(),
-        draw_labels=True,
-        linewidth=0.1,
-        color="k",
-        alpha=1,
-        linestyle="--",
-    )
-    gl.top_labels = False
-    gl.right_labels = False
-    gl.xformatter = LONGITUDE_FORMATTER
-    gl.yformatter = LATITUDE_FORMATTER
-    # Add map features with Cartopy
-    # Set environment variables to suppress GDAL/PROJ debug output
-    os.environ["CPL_DEBUG"] = "OFF"
-    os.environ["PROJ_DEBUG"] = "OFF"
-    ax.add_feature(
-        cfeature.NaturalEarthFeature(
-            "physical",
-            "land",
-            "10m",
-            edgecolor="face",
-            facecolor="none",
+        # Plot lat/lon grid
+        gl = ax.gridlines(
+            crs=ccrs.PlateCarree(),
+            draw_labels=True,
+            linewidth=0.1,
+            color="k",
+            alpha=1,
+            linestyle="--",
         )
-    )
-    ax.coastlines(linewidth=1)
-    if title is not None:
-        plt.title(title)
-    plt.tight_layout()
-    plt.show()
+        gl.top_labels = False
+        gl.right_labels = False
+        gl.xformatter = LONGITUDE_FORMATTER
+        gl.yformatter = LATITUDE_FORMATTER
+        # Add map features with Cartopy
+        # Set environment variables to suppress GDAL/PROJ debug output
+        os.environ["CPL_DEBUG"] = "OFF"
+        os.environ["PROJ_DEBUG"] = "OFF"
+        ax.add_feature(
+            cfeature.NaturalEarthFeature(
+                "physical",
+                "land",
+                "10m",
+                edgecolor="face",
+                facecolor="none",
+            )
+        )
+        ax.coastlines(linewidth=1)
+        if title is not None:
+            plt.title(title)
+        plt.tight_layout()
+        plt.show()
+    except Exception as ex:
+        logger.error(
+            f"Failed to create the plot. \n{ex}\nLongitude:{_x}\nLatitude: {_y}\n{message}"
+        )
 
 
 def interpolate_path(

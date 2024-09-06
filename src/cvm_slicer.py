@@ -106,6 +106,10 @@ def display_range(ds):
     """Output ranges for the given dataset."""
     logger.info("\nRanges:")
     for var in ds.variables:
+        if "units" not in ds[var].attrs:
+            logger.error(f"Missing units for variable '{var}'")
+            sys.exit(2)
+
         logger.info(
             f"\t{var}: {np.nanmin(ds[var].data):0.2f} to  {np.nanmax(ds[var].data):0.2f} {ds[var].attrs['units']}"
         )
@@ -273,8 +277,12 @@ def main():
         messages.append(f"[INFO] Loaded {input_file} and it is a netCDF file")
         engine = get_netcdf_engine(input_file)
         with xr.open_dataset(input_file, engine=engine) as ds:
+            base_title = ""
             if "model" in ds.attrs:
                 base_title = ds.attrs["model"]
+            elif "id" in ds.attrs:
+                base_title = ds.attrs["id"]
+
             data_var = list(ds.data_vars)
             coordinates = list(ds.coords)
             for var in coordinates:
@@ -295,8 +303,13 @@ def main():
             aux_coords = aux_coords_list.copy()
             # Make sure other coordinates not in the main list appear in aux_coords.
             aux_coords += [
-                coord for coord in main_coords if coord not in main_coords_list
+                coord for coord in main_coords_list if coord not in main_coords
             ]
+
+            # Make sure the aux coord items are not included in data_var.
+            for _aux in aux_coords:
+                if _aux in data_var:
+                    data_var.remove(_aux)
 
             while option != "exit":
                 if verbose:
@@ -347,6 +360,7 @@ def main():
                         elif subset_type.strip() == "back" or not option.strip():
                             break
                         if subset_type == "volume":
+                            subtitle = "volume"
                             # Get the volume limits.
                             subset = ds.copy()
                             subset_limits = dict()
@@ -474,6 +488,7 @@ def main():
 
                         elif subset_type == "xsection":
                             # A cross-section of the model.
+                            subtitle = f"cross-section"
                             if verbose:
                                 logger.info(
                                     f"[INFO] Plotting an interpolated cross-sectional slice through gridded data\nPlease provide the cross-section limits"
@@ -483,6 +498,9 @@ def main():
                             )
 
                             for var in ds.coords:
+                                if "units" not in ds[var].attrs:
+                                    logger.error(f"Missing units for variable '{var}'")
+                                    sys.exit(2)
                                 # Cross-sections use geographic coordinates.
                                 if var in ["latitude", "longitude", "depth"]:
                                     logger.info(
@@ -805,7 +823,9 @@ def main():
                                     )
 
                                     # Add title if the model name is available.
-                                    plt.title(f"{base_title} - {plot_var}")
+                                    plt.title(
+                                        f"{base_title} - {subtitle} of {plot_var}"
+                                    )
 
                                     # Adjust the layout
                                     plt.tight_layout()
@@ -852,6 +872,7 @@ def main():
                                 slice_dir = input(
                                     f"[subset-slice] direction [{', '.join(main_coords+['back', 'exit'])}]? "
                                 )
+                                subtitle = f"{slice_dir} slice"
                                 # Decide on the coordinate system to work with.
                                 # If in both, choose the geographic one.
                                 coords = main_coords
@@ -1064,7 +1085,9 @@ def main():
                                                     )
                                                 else:
                                                     plot_data.plot(cmap=cmap)
-                                                plt.title(f"{base_title} - {plot_var}")
+                                                plt.title(
+                                                    f"{base_title} - {subtitle} of {plot_var} at {sliced_data[slice_dir].values}  {sliced_data[slice_dir].attrs['units']}"
+                                                )
                                                 # Adjust the layout
                                                 plt.tight_layout()
                                                 plt.show()
@@ -1101,7 +1124,9 @@ def main():
                                                     sliced_data[plot_var].plot.surface(
                                                         cmap=cmap,
                                                     )
-                                                plt.title(f"{base_title} - {plot_var}")
+                                                plt.title(
+                                                    f"{base_title} - {subtitle} of {plot_var} at {sliced_data[slice_dir].values} {sliced_data[slice_dir].attrs['units']}"
+                                                )
                                                 # Adjust the layout
                                                 plt.tight_layout()
                                                 plt.show()
@@ -1137,7 +1162,7 @@ def main():
                                                     sliced_data,
                                                     vmin=vmin,
                                                     vmax=vmax,
-                                                    title=f"{base_title}, {plot_var} at {sliced_data[slice_dir].values} {sliced_data[slice_dir].attrs['units']}",
+                                                    title=f"{base_title}, {subtitle} of {plot_var} at {sliced_data[slice_dir].values} {sliced_data[slice_dir].attrs['units']}",
                                                 )
                                                 if len(data_var) <= 1:
                                                     plot_var = "back"
@@ -1242,19 +1267,6 @@ def main():
                                                     sliced_data, filename, messages
                                                 )
                                                 messages = output_messages(messages)
-
-                                # What does the user want to do next?
-                                messages = output_messages(messages)
-                                slice_value = input(
-                                    f"[slice-{slice_dir}] {slice_dir} slice (between {np.nanmin(ds[slice_dir].data)} and {np.nanmax(ds[slice_dir].data)}) [back, exit]: "
-                                )
-                                # Done, back!
-                                if slice_value.strip() == "exit":
-                                    sys.exit()
-                                elif (
-                                    slice_value.strip() == "back" or not option.strip()
-                                ):
-                                    break
 
     else:
         logger.error(f"[ERR] {input_file} is not a valid netCDF file")

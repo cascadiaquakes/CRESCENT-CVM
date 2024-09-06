@@ -15,3 +15,4 @@ extension = {
 netcdf_engines = {".nc": "netcdf4"}
 line_break = "\n"
 cmap = "jet_r"
+grid_spatial_ref = ["latitude_longitude", "transverse_mercator"]
