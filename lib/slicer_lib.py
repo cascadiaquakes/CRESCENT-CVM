@@ -279,7 +279,7 @@ def interpolate_path(
     end,
     num_points=100,
     method="linear",
-    grid_mapping="latitude_longitude",
+    grid_ref="latitude_longitude",
     utm_zone=None,
     ellipsoid=None,
 ):
@@ -306,13 +306,13 @@ def interpolate_path(
     )
 
     # Interpolate the dataset to these points using the specified method
-    if grid_mapping == "latitude_longitude":
+    if grid_ref == "latitude_longitude":
         interpolated_ds = ds.interp(
             latitude=path.latitude, longitude=path.longitude, method=method
         )
     else:
         if None in (utm_zone, ellipsoid):
-            message = f"[ERR] for grid_mapping: {grid_mapping}, utm_zone and ellipsoid are required. Current values: {utm_zone}, {ellipsoid}!"
+            message = f"[ERR] for grid_ref: {grid_ref}, utm_zone and ellipsoid are required. Current values: {utm_zone}, {ellipsoid}!"
             logger.error(message)
             raise
         x_points = list()

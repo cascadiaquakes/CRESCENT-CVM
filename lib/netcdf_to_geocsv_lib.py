@@ -80,6 +80,23 @@ def json_metadata(input_file):
             key: convert_to_json_safe(value) for key, value in ds.attrs.items()
         }
 
+        file_size_bytes = os.path.getsize(input_file)
+        file_size_kb = file_size_bytes / 1024
+        metadata_dict = dict()
+        metadata_dict["vars"] = list(ds.variables)
+
+        if file_size_kb:
+            metadata_dict["size_kb"] = round(file_size_kb, 2)
+        metadata_dict["data_vars"] = list(ds.data_vars)
+        z_var = list(
+            set(metadata_dict["vars"])
+            - set(metadata_dict["data_vars"])
+            - set(["latitude", "longitude", "easting", "northing", "x", "y"])
+        )
+        metadata_dict["z_var"] = ""
+        if len(z_var) >= 1:
+            metadata_dict["z_var"] = z_var[0]
+
         # Include variable attributes
         variables_json = {}
         for var_name, var in ds.variables.items():
@@ -87,9 +104,10 @@ def json_metadata(input_file):
                 key: convert_to_json_safe(value) for key, value in var.attrs.items()
             }
             variables_json[var_name] = var_attrs
+        metadata_dict["variables"] = variables_json
 
         # Combine dataset and variable attributes
-        output_json = lib.merge_dictionaries(metadata_json, [variables_json])
+        output_json = lib.merge_dictionaries(metadata_json, [metadata_dict])
 
     return output_json
 

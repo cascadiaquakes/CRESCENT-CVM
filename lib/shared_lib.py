@@ -581,7 +581,7 @@ def get_param(params, var, required=True):
     logger = get_logger()
     if var not in params:
         logger.error(
-            f"[ERR] parameter '{var}' is required but it is missing from the parameter file."
+            f"[ERR] parameter '{var}' is required but it is missing from the parameter file.\n{list(params.keys())}"
         )
         if required:
             sys.exit(2)
@@ -643,6 +643,8 @@ def project_lonlat_utm(
     xy_to_latlon (bool, default=False) – If inverse is True the inverse transformation from x/y to lon/lat is performed.
     preserve_units (bool) – If false, will ensure +units=m.
     """
+    utm_zone = int(utm_zone)
+
     P = Proj(
         proj="utm",
         zone=utm_zone,
@@ -655,6 +657,10 @@ def project_lonlat_utm(
         latitude,
         inverse=xy_to_latlon,
     )
+    if np.isinf(x) or np.isinf(y):
+        print(
+            f"Invalid result for converting ({longitude}, {latitude}, inf values) with xy_to_latlon set to '{xy_to_latlon}' for the given UTM zone {utm_zone}."
+        )
     return x, y
 
 

@@ -1,14 +1,14 @@
-# The following parameters define the model global parameters for constructing the metadata.
+# The following parameters define the model parameters for constructing the metadata.
 # All parameters should follow the CF Metadata Conventions (https://cfconventions.org/).
 
 # Rules:
 # Blank lines and lines starting with # are ignored
 # Each parameter should be defined on a new line with key=value format (quotes are not required)
-# Lines starting with "-" indicate a new parameter definition
-# Lines starting with ">" indicate a new parameter grouping.
+# Lines starting with - indicate a new parameter definition
+# Lines starting with > indicate a new parameter grouping.
 #    - Each parameter group should contain one or more parameter definition (key=value) on a new line 
 #    - The leading and trailing blank spaces are ignored
-# Lines starting with ">>" indicate a new parameter sub-grouping.
+# Lines starting with >> indicate a new parameter sub-grouping.
 #    - Each parameter sub-group should be nested under a parameter group
 #    - Each parameter sub-group should contain one or more parameter definition (key=value) on a new line 
 #    - The leading and trailing blank spaces are ignored
@@ -21,21 +21,15 @@
 
 # Groups:
 # For HDF5 formats only. Ignored by netCDF.
-# Under HDF5, the model values are stored as uniform grids within the "volumes" group.
-# The elevation of surfaces are stored within the "surfaces" group.
-# Use the groups parameter to assign your own group names:
-# For example, we set the main groups as MODEL and SURFACES:
-#
-# > groups
-#      volumes = MODEL
-#      surfaces = SURFACES
+# By default, the model values are stored as uniform grids within the "volumes" group.
+#             The elevation of surfaces are stored within the "surfaces" group.
 
 > groups
-     volumes = MODEL
-     surfaces = SURFACES
+     volumes = volumes
+     surfaces = surfaces
 
 # Model:
-# model : The model name (no spaces).
+# name : The model name (no spaces).
 # title: A short title for the model.
 # summary: A very short description for the model.
 # reference: A short reference including author names and date.
@@ -46,13 +40,13 @@
 #        model uses an expanded data set.
 
 > model
-    model = Cascadia_ANT+RF_Delph2018
-    title = 3D vertical shear-wave velocity model of the Cascadian forearc from the joint inversion of ambient noise dispersion and receiver functions
-    summary = Cascadia_ANT+RF_Delph2018 was created from the joint inversion of ambient noise Rayleigh waves dispersion measurements (8-50 seconds) and adaptive CCP-derived receiver functions (see Delph et al., 2015, 2017 for details of methodology; Delph et al., 2018 for details of this model).
-    reference = Delph, Levander, and Niu (2018)
-    reference_pid = doi:10.1029/2018gl079518
+    model = casc1.6_velmdl
+    title = P- and S-wave Seismic Velocity Models Incorporating the Cascadia Subduction Zone
+    summary = P- and S-wave Seismic Velocity Models Incorporating the Cascadia Subduction Zone for 3D Earthquake Ground Motion simulations- Update for Open-File Report 2007-1348
+    reference = Stephenson, Reitman, and Angster (2017)
+    reference_pid = doi:10.3133/ofr20171152
     data_revision = r0.1
-    version = v0.0
+    Version = v0.0
 
 
 # Repository:
@@ -60,7 +54,7 @@
 #        Usually the repository provides a DOI.
 
 > repository
-    repository_pid = doi:10.17611/dp/cascadiaantrfd2018
+    repository_pid = doi:1234.567890
 
 
 # Corresponding author:
@@ -70,10 +64,10 @@
 # author_url: Author's website
 
 > corresponding_author
-    author_name = Jonathan R. Delph
-    author_email = jdelph@purdue.edu
-    author_institution = Purdue University
-    author_url = https://www.eaps.purdue.edu/delph/
+    author_name = William J. Stephenson
+    author_email = manochehr.bahavar@earthscope.org
+    author_institution = USGS
+    author_url = https://pubs.usgs.gov/publication/ofr20171152
 
 
 # Geospatial limits
@@ -99,17 +93,17 @@
 #    geospatial_vertical_units: Variable's units
 
 > geospatial
-    geospatial_lon_min = -124.8
-    geospatial_lon_max = -120
-    geospatial_lon_units = degrees_east
-    geospatial_lon_resolution = 0.2
-    geospatial_lat_min = 40
-    geospatial_lat_max = 49
+    geospatial_lon_min = -130.1
+    geospatial_lon_max = -121.0
+    geospatial_on_units = degrees_east
+    geospatial_on_resolution = 1
+    geospatial_lat_min = 40.2
+    geospatial_lat_max = 50.0
     geospatial_lat_units = degrees_north
     geospatial_lat_resolution = 1
-    geospatial_vertical_min = -3
-    geospatial_vertical_max = 80
-    geospatial_vertical_units = km
+    geospatial_vertical_min = 0
+    geospatial_vertical_max = 60000.0
+    geospatial_vertical_units = m
     geospatial_vertical_positive = down
 
 
@@ -127,11 +121,12 @@
 # Currently, the CVM-Tools support vertex-based values.
 
 > global_attrs 
-    keywords = seismic,Rayleigh waves dispersion,shear wave,s wave,Cascadian forearc,ambient noise dispersion,receiver functions
-    acknowledgment = Model was provided by Jonathan R. Delph of Department of Earth, Environmental and Planetary Sciences, Rice University
-    history = [2024-01-03] Converted to netCDF via CRESCENT data tools.
-    comments = CRESCENT CVM tools development project.
+    keywords = seismic,tomography,shearwave,swave,elasticwaveform,CascadiaSubductionZone
+    acknowledgment = Model from USGS Open-File Report 2007-1348
+    history = [2024-01-18] CRESCENT Format conversion tool
+    comments = model converted to netCDF by CRESCENT CVM
     data_layout = vertex
+
 
 # Grid Coordinate Reference System
 # A recognized grid coordinate system
@@ -141,7 +136,7 @@
 #        system based upon latitude and longitude coordinates.
 # mercator -- Mercator
 
-- grid_ref = latitude_longitude
+- grid_ref = marcator
 
 
 # The Universal Transverse Mercator zone:
@@ -154,9 +149,7 @@
 
 # The Ellipsoid reference:
 #
-# ellipsoid: Ellipsoid reference
+#ellipsoid: Ellipsoid reference
 
 - ellipsoid = WGS84
-
-
 

@@ -33,7 +33,8 @@
 # global_acknowledgment: Model was provided by Jonathan R. Delph of Department of Earth, Environmental and Planetary Sciences, Rice University
 # global_history: [2024-01-03] Converted to netCDF via CRESCENT data tools.
 # global_comments: CRESCENT CVM tools development project.
-# global_grid_mapping_name: latitude_longitude
+# global_data_layout: vertex
+# global_grid_ref: latitude_longitude
 # global_utm_zone: 10
 # global_ellipsoid: WGS84
 # longitude_column: longitude
@@ -54,22 +55,23 @@
 # depth_units: km
 # easting_column: easting
 # easting_variable: easting
-# easting_standard_name: easting
+# easting_standard_name: projection_x_coordinate
 # easting_long_name: easting; UTM
 # easting_units: m
 # northing_column: northing
 # northing_variable: northing
 # northing_long_name: northing; UTM
 # northing_units: m
-# northing_standard_name: northing
+# northing_standard_name: projection_y_coordinate
 # vs_column: vs
 # vs_variable: vs
 # vs_dimensions: 3
 # vs_long_name: Shear-wave velocity
 # vs_display_name: S Velocity (km/s)
+# vs_grid_ref: latitude_longitude
 # vs_units: km.s-1
+# vs_data_source: data-derived
 # vs_coordinates: easting northing
-# vs_grid_mapping: latitude_longitude
 longitude|latitude|depth|easting|northing|vs
 -120.2|40.0|-2|739023.9|4431513.0|3.113
 -120.2|40.0|-1|739023.9|4431513.0|3.1429

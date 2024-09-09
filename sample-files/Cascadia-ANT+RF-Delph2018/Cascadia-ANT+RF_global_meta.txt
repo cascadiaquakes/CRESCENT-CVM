@@ -133,18 +133,15 @@
     comments = CRESCENT CVM tools development project.
     data_layout = vertex
 
-# Grid mapping
-# A recognized grid mapping name, for more information see:
-# https://cfconventions.org/cf-conventions/cf-conventions.html#appendix-grid-mappings
+# Grid Coordinate Reference System
+# A recognized grid coordinate system
 #
 # Currently supporting:
-# latitude_longitude -- This grid mapping defines the canonical 2D geographical coordinate 
-#        system based upon latitude and longitude coordinates. 
+# latitude_longitude -- Defines the canonical 2D geographical coordinate
+#        system based upon latitude and longitude coordinates.
 # mercator -- Mercator
-#
-# The grid_mapping_name parameter should be consistent with the x description below.
 
-- grid_mapping_name = latitude_longitude
+- grid_ref = latitude_longitude
 
 
 # The Universal Transverse Mercator zone:
@@ -157,7 +154,7 @@
 
 # The Ellipsoid reference:
 #
-#ellipsoid: Ellipsoid reference
+# ellipsoid: Ellipsoid reference
 
 - ellipsoid = WGS84
 

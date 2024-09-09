@@ -17,11 +17,10 @@
 # This parameter is required for HDF5 output files only and it will be used, if provide, to create a
 # subgroup under the root group for the dataset.
 # datasets represented by this metadata file
-# NOTE: An empty dataset_group will place the data under the main group.
+# NOTE: An empty dataset_group is not allowed.
 # NOTE: Duplicate dataset_group may result in variable conflicts and code failure.
-# 
-- dataset_group =  VELOCITY
-
+#
+- dataset_group = velocity
 
 # Delimiter:
 # The delimiter used to separate data columns.
@@ -47,7 +46,7 @@
 > x 
     column = easting
     variable = easting
-    standard_name = easting
+    standard_name = projection_x_coordinate
     long_name = easting; UTM
     units = m
 
@@ -60,11 +59,12 @@
 # standard_name: a CF-compliant standard name. Please consult the CF Standard Name Table
 # (https://cfconventions.org/Data/cf-standard-names/current/build/cf-standard-name-table.html).
 # long_name: Text that describes the variable more fully.
+# units: Variable's units
 
 > y
     column = northing
     variable = northing
-    standard_name = northing
+    standard_name = projection_y_coordinate
     long_name = northing; UTM
     units = m
 
@@ -142,6 +142,7 @@
 # (https://cfconventions.org/Data/cf-standard-names/docs/guidelines.html).
 # long_name: Text that describes the variable more fully.
 # display_name: Text to use for variable display. 
+# grid_ref: Text A recognized grid coordinate system (Currently supporting, latitude_longitude and mercator)
 # data_source:  describes the origin of the data for this variable:
 #       If the data is derived from observations, the source attribute should be set to “data-derived.”
 #       If the data is derived from an empirical formula, the source attribute should indicate how the variable was derived.
@@ -161,6 +162,7 @@
         display_name = P Velocity (m/s)
         units = m.s-1
         data_source = data-derived
+        grid_ref = mercator 
     >> vs
         column = vs
         variable = vs
@@ -169,3 +171,4 @@
         display_name = S Velocity (m/s)
         units = m.s-1
         data_source = data-derived
+        grid_ref = mercator

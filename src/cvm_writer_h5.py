@@ -489,13 +489,13 @@ def main():
 
     # Go through the global parameter file.
     global_params = lib.read_model_metadata(global_file)
-    # All dataset must be under the same grid_mapping_name.
-    if "grid_mapping_name" not in global_params:
+    # All dataset must be under the same grid_ref.
+    if "grid_ref" not in global_params:
         logger.error(
-            f"[ERR] global metadata file {global_file} is missing the required 'grid_mapping_name' parameter."
+            f"[ERR] global metadata file {global_file} is missing the required 'grid_ref' parameter."
         )
         sys.exit(1)
-    grid_mapping_name = global_params["grid_mapping_name"]
+    grid_ref = global_params["grid_ref"]
     # Parse the  global metadata file.
     metadata_dict, global_metadata = meta_lib.get_h5_metadata(
         global_params, global_meta=True

@@ -156,7 +156,7 @@ def main():
 
     # Initialize the timer.
     t0 = time.time()
-
+    file_size_kb = None
     # NetCDF or geocsv model files requested?
     if "netcdf" in output_types or "geocsv" in output_types:
         # Proceed only if a data file is given
@@ -213,6 +213,12 @@ def main():
                 t0, time_txt = lib.time_it(t0)
                 logger.info(f"[{time_txt}] {message}")
 
+                # Get the file size in bytes
+                file_size = os.path.getsize(f"{output}.nc")
+
+                # Convert the size to a more readable format (e.g., kB)
+                file_size_kb = file_size / 1024
+
             # Model as GeoCSV.
             if "geocsv" in output_types:
                 df = meta_lib.add_aux_coord_columns(df, coords)
@@ -235,8 +241,21 @@ def main():
                 if not vars[_var]["column"].strip():
                     vars[_var]["column"] = vars[_var]["variable"]
 
+        # What is the z variable?
+        z_var = ""
+        if "z" in metadata:
+            try:
+                z_var = metadata["z"]["variable"]
+            except Exception as ex:
+                logger.error(f"[ERR] Missing metadata['z']['variable']")
+                sys.exit()
         message = meta_lib.write_json_metadata(
-            f"{output}_metadata", metadata_dict, vars, data_variables
+            f"{output}_metadata",
+            metadata_dict,
+            vars,
+            data_variables,
+            z_var,
+            file_size_kb,
         )
         t0, time_txt = lib.time_it(t0)
         logger.info(f"[{time_txt}] {message}")

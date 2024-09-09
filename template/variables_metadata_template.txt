@@ -13,32 +13,14 @@
 #    - Each parameter sub-group should contain one or more parameter definition (key=value) on a new line 
 #    - The leading and trailing blank spaces are ignored
 
-# Coordinate Systems:
-# Currently, both geographical coordinates and UTM projections are supported.
-#
-# In this parameter file, the primary coordinate system defines the coordinate system under which the model is 
-# described (geographic or UTM). This ensures consistency and clarity in the representation of spatial data. 
-# When setting up your netCDF file, specify the primary coordinate system to match the model's defined system.
-#
-# Defining an auxiliary coordinate system is optional but offers several advantages:
-# 
-# - Enhanced Versatility: Provides additional spatial context, allowing data to be interpreted in multiple coordinate systems.
-# - Improved Data Analysis: Facilitates comparisons and transformations between different projections, aiding in more comprehensive analysis.
-# - Consistency: Ensures that various spatial datasets can be accurately integrated, maintaining consistency in geospatial representations.
-# - User Flexibility: Users can select the most appropriate coordinate system for their specific application, enhancing usability and flexibility.
-# These benefits collectively improve the robustness and usability of geospatial data stored in netCDF files.
-#
-# If defining an auxiliary coordinate, use the other coordinate system as the auxiliary coordinate system.
-
 # DataSet group:
 # This parameter is required for HDF5 output files only and it will be used, if provide, to create a
 # subgroup under the root group for the dataset.
 # datasets represented by this metadata file
 # NOTE: An empty dataset_group will place the data under the main group.
 # NOTE: Duplicate dataset_group may result in variable conflicts and code failure.
-# 
+#
 - dataset_group =  VELOCITY
-
 
 # Delimiter:
 # The delimiter used to separate data columns.
@@ -52,17 +34,18 @@
 
 
 # The primary X coordinate (could be longitude for the 
-# geographic coordinate system, or easting for UTM projection:
+# geographic coordinate system, or easting for UTM projection, etc.:
 #
 # column: The column heading in the data file:
 # variable: the dimension variable name.
 # standard_name: a CF-compliant standard name. Please consult the CF Standard Name Table
+# Do not include the standard_name if one is not available.
 # (https://cfconventions.org/Data/cf-standard-names/current/build/cf-standard-name-table.html).
-# long_name: Text that describes the variable more fully and is used by most packages to label plots. 
-#units: Variable's units
+# long_name: Text that describes the variable more fully.
+# units: Variable's units
 
 > x 
-    column = longitude1
+    column = longitude
     variable = longitude
     standard_name = longitude
     long_name = Longitude; positive east
@@ -70,13 +53,14 @@
 
 
 # The primary Y coordinate (could be latitude for the 
-# geographic coordinate system, or northing for UTM projection:
+# geographic coordinate system, or northing for UTM projection, etc.:
 #
 # column: The column heading in the data file:
 # variable: the dimension variable name.
 # standard_name: a CF-compliant standard name. Please consult the CF Standard Name Table
+# Do not include the standard_name if one is not available.
 # (https://cfconventions.org/Data/cf-standard-names/current/build/cf-standard-name-table.html).
-# long_name: Text that describes the variable more fully and is used by most packages to label plots. 
+# long_name: Text that describes the variable more fully.
 
 > y
     column = latitude
@@ -93,8 +77,9 @@
 # variable: the dimension variable name.
 # positive: the positive direction.
 # standard_name: a CF-compliant standard name. Please consult the CF Standard Name Table
+# Do not include the standard_name if one is not available.
 # (https://cfconventions.org/Data/cf-standard-names/current/build/cf-standard-name-table.html).
-# long_name: Text that describes the variable more fully and is used by most packages to label plots. 
+# long_name: Text that describes the variable more fully.
 # units: Variable's units
 
 > z
@@ -119,21 +104,22 @@
 # compute the auxiliary coordinates .
 # variable: the dimension variable name.
 # standard_name: a CF-compliant standard name. Please consult the CF Standard Name Table
+# Do not include the standard_name if one is not available.
 # (https://cfconventions.org/Data/cf-standard-names/current/build/cf-standard-name-table.html).
-# long_name: Text that describes the variable more fully and is used by most packages to label plots. 
+# long_name: Text that describes the variable more fully.
 # units: Variable's units
-
 #standard_name = projection_x_coordinate
+
 > x2
     column = 
     variable = easting
-    standard_name = easting
+    standard_name = projection_x_coordinate
     long_name = easting; UTM
     units = m
 
 
 # The auxiliary Y coordinate 
-# Could be longitude for the geographic coordinate system, or easting for UTM projection:
+# Could be longitude for the geographic coordinate system, or easting for UTM projection, etc.:
 #
 # NOTE: Include only if x2 above is included.
 #
@@ -143,17 +129,18 @@
 # column: The column heading in the data file:
 # variable: the dimension variable name.
 # standard_name: a CF-compliant standard name. Please consult the CF Standard Name Table
+# Do not include the standard_name if one is not available.
 # (https://cfconventions.org/Data/cf-standard-names/current/build/cf-standard-name-table.html).
-# long_name: Text that describes the variable more fully and is used by most packages to label plots. 
+# long_name: Text that describes the variable more fully.
 # units: Variable's units
-
 #    standard_name = projection_y_coordinate
+
 > y2
     column = northing
     variable = northing
     long_name = northing; UTM
     units = m
-    standard_name = northing
+    standard_name = projection_y_coordinate
 
 
 # variables
@@ -165,8 +152,9 @@
 # variable: the model variable name. It is recommended to use a CF-compliant standard name. 
 # Please consult the Guidelines for Construction of CF Standard Names
 # (https://cfconventions.org/Data/cf-standard-names/docs/guidelines.html).
-# long_name: Text that describes the variable more fully and is used by most packages to label plots. 
+# long_name: Text that describes the variable more fully.
 # display_name: Text to use for variable display. 
+# grid_ref: Text A recognized grid coordinate system (Currently supporting, latitude_longitude and mercator)
 # data_source:  describes the origin of the data for this variable:
 #       If the data is derived from observations, the source attribute should be set to “data-derived.”
 #       If the data is derived from an empirical formula, the source attribute should indicate how the variable was derived.
@@ -183,5 +171,6 @@
         dimensions = 3
         long_name = Shear-wave velocity
         display_name = S Velocity (km/s)
+        grid_ref = latitude_longitude
         units = km.s-1
         data_source = data-derived

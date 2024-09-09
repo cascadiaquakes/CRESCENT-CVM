@@ -81,8 +81,8 @@ def get_h5_metadata(params, global_meta=False):
         metadata_g["corresponding_author"] = get_param(params, "corresponding_author")
         metadata_g["global_attrs"] = get_param(params, "global_attrs")
 
-        grid_mapping_name = get_param(params, "grid_mapping_name")
-        metadata_g["global_attrs"]["grid_mapping_name"] = grid_mapping_name
+        grid_ref = get_param(params, "grid_ref")
+        metadata_g["global_attrs"]["grid_ref"] = grid_ref
 
         utm_zone = get_param(params, "utm_zone")
         metadata_g["global_attrs"]["utm_zone"] = str(utm_zone)
@@ -124,9 +124,9 @@ def get_h5_metadata(params, global_meta=False):
             data_variables[var][f"coordinates"] = f'{_vars["x"]} {_vars["y"]}'
 
         if metadata_v["x"]["variable"] == "longitude":
-            data_variables[var]["grid_mapping"] = "latitude_longitude"
+            data_variables[var]["grid_ref"] = "latitude_longitude"
         else:
-            data_variables[var]["grid_mapping"] = "transverse_mercator"
+            data_variables[var]["grid_ref"] = "transverse_mercator"
 
     var_dict = dict()
     if metadata_v["x"] is not None:
@@ -177,8 +177,8 @@ def get_metadata(params):
     metadata_g["corresponding_author"] = get_param(params, "corresponding_author")
     metadata_g["global_attrs"] = get_param(params, "global_attrs")
 
-    grid_mapping_name = get_param(params, "grid_mapping_name")
-    metadata_g["global_attrs"]["grid_mapping_name"] = grid_mapping_name
+    grid_ref = get_param(params, "grid_ref")
+    metadata_g["global_attrs"]["grid_ref"] = grid_ref
 
     utm_zone = get_param(params, "utm_zone")
     metadata_g["global_attrs"]["utm_zone"] = str(utm_zone)
@@ -207,9 +207,9 @@ def get_metadata(params):
             data_variables[var][f"coordinates"] = f'{_vars["x"]} {_vars["y"]}'
 
         if metadata_v["x"]["variable"] == "longitude":
-            data_variables[var]["grid_mapping"] = "latitude_longitude"
+            data_variables[var]["grid_ref"] = "latitude_longitude"
         else:
-            data_variables[var]["grid_mapping"] = "transverse_mercator"
+            data_variables[var]["grid_ref"] = "transverse_mercator"
 
     var_dict = dict()
     if metadata_v["x"] is not None:
@@ -250,7 +250,9 @@ def get_metadata(params):
     )
 
 
-def write_json_metadata(output, metadata_dict, var_dict, data_variables):
+def write_json_metadata(
+    output, metadata_dict, var_dict, data_variables, z_var, size_kb
+):
     """Write out the metadata JSON file.
 
     Keyword arguments:
@@ -260,8 +262,12 @@ def write_json_metadata(output, metadata_dict, var_dict, data_variables):
     data_variables -- [required] data variables dictionary
     """
     json_file = f"{output}.json"
+    metadata_dict["vars"] = list(var_dict.keys())
+    metadata_dict["z_var"] = z_var
+    if size_kb:
+        metadata_dict["size_kb"] = round(size_kb, 2)
     metadata_dict["variables"] = var_dict
-    metadata_dict["data_vars"] = data_variables
+    metadata_dict["data_vars"] = list(data_variables.keys())
 
     with open(json_file, "w") as fp:
         json.dump(metadata_dict, fp, indent=writer_prop.json_indent)
@@ -477,18 +483,18 @@ def get_coords(df, metadata, flat="variable", verbose=False):
 
         # Compute the aux coords.
         else:
-            grid_mapping_name = metadata["global_attrs"]["grid_mapping_name"]
-            if grid_mapping_name == "latitude_longitude":
+            grid_ref = metadata["global_attrs"]["grid_ref"]
+            if grid_ref == "latitude_longitude":
                 xy_to_latlon = False
                 if verbose:
                     logger.info(
-                        f"[INFO] grid_mapping_name: {grid_mapping_name}: compute auxiliary coordinates using longitude and latitude"
+                        f"[INFO] grid_ref: {grid_ref}: compute auxiliary coordinates using longitude and latitude"
                     )
             else:
                 xy_to_latlon = True
                 if verbose:
                     logger.info(
-                        f"[INFO] grid_mapping_name: {grid_mapping_name}: compute longitude and latitude coordinates"
+                        f"[INFO] grid_ref: {grid_ref}: compute longitude and latitude coordinates"
                     )
 
             # Set the column for x2 the same as the variable name as it was either None or blank.

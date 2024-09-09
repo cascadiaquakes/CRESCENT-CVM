@@ -39,6 +39,7 @@
 # column: The column heading in the data file:
 # variable: the dimension variable name.
 # standard_name: a CF-compliant standard name. Please consult the CF Standard Name Table
+# Do not include the standard_name if one is not available.
 # (https://cfconventions.org/Data/cf-standard-names/current/build/cf-standard-name-table.html).
 # long_name: Text that describes the variable more fully.
 # units: Variable's units
@@ -57,6 +58,7 @@
 # column: The column heading in the data file:
 # variable: the dimension variable name.
 # standard_name: a CF-compliant standard name. Please consult the CF Standard Name Table
+# Do not include the standard_name if one is not available.
 # (https://cfconventions.org/Data/cf-standard-names/current/build/cf-standard-name-table.html).
 # long_name: Text that describes the variable more fully.
 
@@ -75,6 +77,7 @@
 # variable: the dimension variable name.
 # positive: the positive direction.
 # standard_name: a CF-compliant standard name. Please consult the CF Standard Name Table
+# Do not include the standard_name if one is not available.
 # (https://cfconventions.org/Data/cf-standard-names/current/build/cf-standard-name-table.html).
 # long_name: Text that describes the variable more fully.
 # units: Variable's units
@@ -101,15 +104,15 @@
 # compute the auxiliary coordinates .
 # variable: the dimension variable name.
 # standard_name: a CF-compliant standard name. Please consult the CF Standard Name Table
+# Do not include the standard_name if one is not available.
 # (https://cfconventions.org/Data/cf-standard-names/current/build/cf-standard-name-table.html).
 # long_name: Text that describes the variable more fully.
 # units: Variable's units
 
-#standard_name = projection_x_coordinate
 > x2
     column = 
     variable = easting
-    standard_name = easting
+    standard_name = projection_x_coordinate
     long_name = easting; UTM
     units = m
 
@@ -125,17 +128,17 @@
 # column: The column heading in the data file:
 # variable: the dimension variable name.
 # standard_name: a CF-compliant standard name. Please consult the CF Standard Name Table
+# Do not include the standard_name if one is not available.
 # (https://cfconventions.org/Data/cf-standard-names/current/build/cf-standard-name-table.html).
 # long_name: Text that describes the variable more fully.
 # units: Variable's units
 
-#    standard_name = projection_y_coordinate
 > y2
     column = northing
     variable = northing
     long_name = northing; UTM
     units = m
-    standard_name = northing
+    standard_name = projection_y_coordinate
 
 
 # variables
@@ -149,6 +152,7 @@
 # (https://cfconventions.org/Data/cf-standard-names/docs/guidelines.html).
 # long_name: Text that describes the variable more fully.
 # display_name: Text to use for variable display. 
+# grid_ref: Text A recognized grid coordinate system (Currently supporting, latitude_longitude and mercator)
 # data_source:  describes the origin of the data for this variable:
 #       If the data is derived from observations, the source attribute should be set to “data-derived.”
 #       If the data is derived from an empirical formula, the source attribute should indicate how the variable was derived.
@@ -166,4 +170,5 @@
         long_name = Shear-wave velocity
         display_name = S Velocity (km/s)
         units = km.s-1
+        grid_ref = latitude_longitude
         data_source = data-derived

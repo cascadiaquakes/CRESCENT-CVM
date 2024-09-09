@@ -551,16 +551,14 @@ def main():
                             )
                             utm_zone = None
                             meta = ds.attrs
-                            if "grid_mapping_name" not in meta:
+                            if "grid_ref" not in meta:
                                 messages.append(
-                                    f"[WARN] The 'grid_mapping_name' attribute not found. Assuming geographic coordinate system"
+                                    f"[WARN] The 'grid_ref' attribute not found. Assuming geographic coordinate system"
                                 )
-                                grid_mapping_name = "latitude_longitude"
+                                grid_ref = "latitude_longitude"
                             else:
-                                grid_mapping_name = meta["grid_mapping_name"]
-                                messages.append(
-                                    f"[INFO] grid_mapping_name is {grid_mapping_name}"
-                                )
+                                grid_ref = meta["grid_ref"]
+                                messages.append(f"[INFO] grid_ref is {grid_ref}")
 
                             # Cross-section interpolation type.
                             interp_type = interpolation_method[0]
@@ -644,7 +642,7 @@ def main():
                                             end,
                                             num_points=steps,
                                             method=interp_type,
-                                            grid_mapping=grid_mapping_name,
+                                            grid_ref=grid_ref,
                                             utm_zone=meta["utm_zone"],
                                             ellipsoid=meta["ellipsoid"],
                                         )
@@ -668,14 +666,14 @@ def main():
                                     ([0], np.cumsum(distances))
                                 )
 
-                                if "grid_mapping_name" not in meta:
+                                if "grid_ref" not in meta:
                                     messages.append(
-                                        f"[WARN] The 'grid_mapping_name' attribute not found. Assuming geographic coordinate system"
+                                        f"[WARN] The 'grid_ref' attribute not found. Assuming geographic coordinate system"
                                     )
-                                    grid_mapping_name = "latitude_longitude"
+                                    grid_ref = "latitude_longitude"
 
                                 else:
-                                    grid_mapping_name = meta["grid_mapping_name"]
+                                    grid_ref = meta["grid_ref"]
 
                                 if units == "mks":
                                     cumulative_distances = cumulative_distances / 1000.0

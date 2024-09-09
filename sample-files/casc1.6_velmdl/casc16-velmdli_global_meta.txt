@@ -134,18 +134,17 @@
     comments = model converted to netCDF by CRESCENT CVM
     data_layout = vertex
 
-# Grid mapping
-# A recognized grid mapping name, for more information see:
-# https://cfconventions.org/cf-conventions/cf-conventions.html#appendix-grid-mappings
+# Coordinate Reference System
+# A recognized grid coordinate syste
 #
 # Currently supporting:
 # latitude_longitude -- This grid mapping defines the canonical 2D geographical coordinate 
 #        system based upon latitude and longitude coordinates. 
 # mercator -- Mercator
 #
-#The grid_mapping_name parameter should be consistent with the x description below.
+# The grid_spatial_ref_name parameter should be consistent with the x description below.
 
-- grid_mapping_name = transverse_mercator
+- grid_spatial_ref_name = transverse_mercator
 
 
 # The Universal Transverse Mercator zone:
@@ -158,7 +157,7 @@
 
 # The Ellipsoid reference:
 #
-#ellipsoid: Ellipsoid reference
+# ellipsoid: Ellipsoid reference
 
 - ellipsoid = WGS84
 
