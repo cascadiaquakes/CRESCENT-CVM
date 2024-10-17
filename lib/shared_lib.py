@@ -580,10 +580,10 @@ def get_param(params, var, required=True):
     # Set up the logger.
     logger = get_logger()
     if var not in params:
-        logger.error(
-            f"[ERR] parameter '{var}' is required but it is missing from the parameter file.\n{list(params.keys())}"
-        )
         if required:
+            logger.error(
+                f"[ERR] parameter '{var}' is required but it is missing from the parameter file.\n{list(params.keys())}"
+            )
             sys.exit(2)
         else:
             return None
