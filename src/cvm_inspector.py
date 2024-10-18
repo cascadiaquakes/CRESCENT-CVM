@@ -147,13 +147,13 @@ def list_coordinates(dataset):
                 break
 
         metadata_summary["Primary Coordinates"] = (
-            primary_coords if primary_coords else "None"
+            primary_coords if primary_coords else None
         )
         metadata_summary["Auxiliary Coordinates"] = (
-            list(auxiliary_coords) if auxiliary_coords else "None"
+            list(auxiliary_coords) if auxiliary_coords else None
         )
         metadata_summary["Third Dimension"] = (
-            third_dimension if third_dimension else "None"
+            third_dimension if third_dimension else None
         )
 
         if primary_coords:
@@ -466,7 +466,7 @@ def list_variables(dataset, primary_coords):
                 var_type = "coordinates"
             elif var_name in auxiliary_coordinates:
                 var_type = "auxiliary"
-            elif "depth" in var_name.lower():
+            elif third_dimension and "depth" in var_name.lower():
                 var_type = "depth"
             else:
                 var_type = "model"
@@ -520,10 +520,10 @@ def list_variables(dataset, primary_coords):
                         indent=True,
                     )
 
-            # Classify variables
-            if var_type == "coordinates" or var_type == "depth":
+            # Classify variable
+            if var_type == "coordinates" or (var_type == "depth" and third_dimension):
                 coordinate_variables[var_name] = var_summary
-            elif var_type == "auxiliary":
+            elif var_type == "auxiliary" and var_type != "depth":
                 coordinate_variables[var_name] = (
                     var_summary  # Auxiliary coordinates are also part of coordinates
                 )

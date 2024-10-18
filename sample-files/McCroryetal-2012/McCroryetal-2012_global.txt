@@ -1,0 +1,162 @@
+# The following parameters define the model global parameters for constructing the metadata.
+# All parameters should follow the CF Metadata Conventions (https://cfconventions.org/).
+
+# Rules:
+# Blank lines and lines starting with # are ignored
+# Each parameter should be defined on a new line with key=value format (quotes are not required)
+# Lines starting with "-" indicate a new parameter definition
+# Lines starting with ">" indicate a new parameter grouping.
+#    - Each parameter group should contain one or more parameter definition (key=value) on a new line 
+#    - The leading and trailing blank spaces are ignored
+# Lines starting with ">>" indicate a new parameter sub-grouping.
+#    - Each parameter sub-group should be nested under a parameter group
+#    - Each parameter sub-group should contain one or more parameter definition (key=value) on a new line 
+#    - The leading and trailing blank spaces are ignored
+
+
+# netCDF output format:
+# should be one of those defined in shared_prop.py
+
+- netcdf_format = NETCDF4C
+
+# Groups:
+# For HDF5 formats only. Ignored by netCDF.
+# Under HDF5, the model values are stored as uniform grids within the "volumes" group.
+# The elevation of surfaces are stored within the "surfaces" group.
+# Use the groups parameter to assign your own group names:
+# For example, we set the main groups as MODEL and SURFACES:
+#
+# > groups
+#      volumes = MODEL
+#      surfaces = SURFACES
+
+> groups
+     volumes = MODEL
+     surfaces = SURFACES
+
+# Model:
+# model : The model name (no spaces).
+# title: A short title for the model.
+# summary: A very short description for the model.
+# reference: A short reference including author names and date.
+# reference_pid: Persistent identifier for the model. Usually the reference's DOI.
+# data_revision: Data revision. This refers to the changes in the initial data. 
+#        Only changes to data creates a revision.
+# version: Data version. This goes beyond changes to data. For example, if the revised
+#        model uses an expanded data set.
+
+> model
+    model = McCroryetal-2012
+    title = JdF slab geometry beneath the Cascadia subduction margin.
+    summary = JdF slab geometry beneath the Cascadia subduction margin.
+    reference = McCrory, Blair, Waldhauser, and Oppenheimer (2012)
+    reference_pid = doi:10.1029/2012JB009407
+    data_revision = r0.0
+    version = v0.0
+
+
+# Repository:
+# repository_pid:  Persistent identifier for the model in the repository. 
+#        Usually the repository provides a DOI.
+
+> repository
+    repository_pid = doi:
+
+
+# Corresponding author:
+# author_name: Name of the author
+# author_email: Author's email.
+# author_institution: Author's institution.
+# author_url: Author's website
+
+> corresponding_author
+    author_name = Patricia A. McCrory
+    author_email = 
+    author_institution = 
+    author_url = 
+
+
+# Geospatial limits
+# specifies the geographical area covered by the dataset.
+#
+# NOTE: For 2D models, set vertical_min and vertical_max to None
+#
+# geospatial
+#    geospatial_lon_min: lower longitude limit
+#    geospatial_lon_max: upper longitude limit
+#    geospatial_lon_units: units
+#    geospatial_lon_resolution: spacing resolution
+#
+#    geospatial_lat_min: lower latitude limit
+#    geospatial_lat_max: upper latitude limit
+#    geospatial_lat_units: units
+#    geospatial_lat_resolution: spacing resolution
+#
+#    geospatial_vertical_min: minimum z
+#    geospatial_vertical_max: maximum z
+#    geospatial_vertical_units: units
+#    geospatial_vertical_positive: positive direction
+#    geospatial_vertical_units: Variable's units
+
+> geospatial
+    geospatial_lon_min = -128.5
+    geospatial_lon_max = -120.5
+    geospatial_lon_units = degrees_east
+    geospatial_lon_resolution = 0.02
+    geospatial_lat_min = 39
+    geospatial_lat_max = 52
+    geospatial_lat_units = degrees_north
+    geospatial_lat_resolution = 0.02
+    geospatial_vertical_min = 10
+    geospatial_vertical_max = 100
+    geospatial_vertical_units = km
+    geospatial_vertical_positive = down
+
+
+# Miscellaneous: 
+# Any additional parameters beyond those 
+# identified below, will be included as additional global attribute
+#
+# keywords: Keywords for the model.
+# acknowledgment: Acknowledgment
+# history: History of changes.
+# comments: Any comments on the model.
+# data_layout: specifies the layout of the data in the file and can take two possible values:
+#    vertex for vertex-based layout (values are specified at vertices)
+#    cell for cell-based layout (values are specified at the centers of grid cells)
+# Currently, the CVM-Tools support vertex-based values.
+
+> global_attrs 
+    keywords = seismic,Juan de Fuca,slab
+    acknowledgment = Model based on https://doi.org/10.1029/2012JB009407
+    history = [2024-10-07] Converted to netCDF via CRESCENT data tools.
+    comments = CRESCENT CVM tools development project.
+    data_layout = vertex
+
+# Grid Coordinate Reference System
+# A recognized grid coordinate system
+#
+# Currently supporting:
+# latitude_longitude -- Defines the canonical 2D geographical coordinate
+#        system based upon latitude and longitude coordinates.
+# mercator -- Mercator
+
+- grid_ref = latitude_longitude
+
+
+# The Universal Transverse Mercator zone:
+#
+# zone: The UTM zone to use when converting to/from latitude longitude
+# ellipsoid: Ellipsoid reference
+
+- utm_zone = 10
+
+
+# The Ellipsoid reference:
+#
+# ellipsoid: Ellipsoid reference
+
+- ellipsoid = WGS84
+
+
+

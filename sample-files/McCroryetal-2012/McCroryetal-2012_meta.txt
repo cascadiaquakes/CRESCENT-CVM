@@ -1,0 +1,174 @@
+# The following parameters define the model parameters for constructing the metadata.
+# All parameters should follow the CF Metadata Conventions (https://cfconventions.org/).
+
+# Rules:
+# Blank lines and lines starting with # are ignored
+# Each parameter should be defined on a new line with key=value format (quotes are not required)
+# Lines starting with "-" indicate a new parameter definition
+# Lines starting with ">" indicate a new parameter grouping.
+#    - Each parameter group should contain one or more parameter definition (key=value) on a new line 
+#    - The leading and trailing blank spaces are ignored
+# Lines starting with ">>" indicate a new parameter sub-grouping.
+#    - Each parameter sub-group should be nested under a parameter group
+#    - Each parameter sub-group should contain one or more parameter definition (key=value) on a new line 
+#    - The leading and trailing blank spaces are ignored
+
+# DataSet group:
+# This parameter is required for HDF5 output files only and it will be used, if provide, to create a
+# subgroup under the root group for the dataset.
+# datasets represented by this metadata file
+# NOTE: An empty dataset_group will place the data under the main group.
+# NOTE: Duplicate dataset_group may result in variable conflicts and code failure.
+#
+- dataset_group =  
+
+# Delimiter:
+# The delimiter used to separate data columns.
+#
+# data: delimiter for the input CSV data file. 
+# geocsv: delimiter for the output GeoCSV file(S).
+
+> delimiter
+    data = 
+    geocsv = |
+
+
+# The primary X coordinate (could be longitude for the 
+# geographic coordinate system, or easting for UTM projection, etc.:
+#
+# column: The column heading in the data file:
+# variable: the dimension variable name.
+# standard_name: a CF-compliant standard name. Please consult the CF Standard Name Table
+# Do not include the standard_name if one is not available.
+# (https://cfconventions.org/Data/cf-standard-names/current/build/cf-standard-name-table.html).
+# long_name: Text that describes the variable more fully.
+# units: Variable's units
+
+> x 
+    column = longitude
+    variable = longitude
+    standard_name = longitude
+    long_name = Longitude; positive east
+    units = degrees_east
+
+
+# The primary Y coordinate (could be latitude for the 
+# geographic coordinate system, or northing for UTM projection, etc.:
+#
+# column: The column heading in the data file:
+# variable: the dimension variable name.
+# standard_name: a CF-compliant standard name. Please consult the CF Standard Name Table
+# Do not include the standard_name if one is not available.
+# (https://cfconventions.org/Data/cf-standard-names/current/build/cf-standard-name-table.html).
+# long_name: Text that describes the variable more fully.
+
+> y
+    column = latitude
+    variable = latitude
+    long_name = Latitude; positive north
+    units = degrees_north
+    standard_name = latitude
+
+# The vertical coordinate (could be depth, elevation, etc.:
+# NOTE: Include only if the model is a 3D model.
+#
+# column: The column heading in the data file:
+# variable: the dimension variable name.
+# positive: the positive direction.
+# standard_name: a CF-compliant standard name. Please consult the CF Standard Name Table
+# Do not include the standard_name if one is not available.
+# (https://cfconventions.org/Data/cf-standard-names/current/build/cf-standard-name-table.html).
+# long_name: Text that describes the variable more fully.
+# units: Variable's units
+
+#> z
+#    column = 
+#    variable = depth
+#    positive = down
+#    standard_name = depth
+#    long_name = depth below sea level
+#    units = km
+
+# The auxiliary X coordinate.
+# NOTE: Set the values only if a secondary coordinate system is desired. For example easting and 
+# northing of the UTM projection for the primary geographic coordinate system, of longitude 
+# and latitude of the geographic coordinates when the primary coordinates are in UTM.
+#
+# NOTE: LEAVE the column field EMPTY if you want the code to compute the auxiliary coordinate.
+# The auxiliary X coordinate could be longitude for the geographic coordinate system, or easting 
+# for UTM projection.
+# 
+# column: The column heading in the data file when the auxiliary coordinates are provided. Set column to None to
+# compute the auxiliary coordinates .
+# variable: the dimension variable name.
+# standard_name: a CF-compliant standard name. Please consult the CF Standard Name Table
+# Do not include the standard_name if one is not available.
+# (https://cfconventions.org/Data/cf-standard-names/current/build/cf-standard-name-table.html).
+# long_name: Text that describes the variable more fully.
+# units: Variable's units
+#standard_name = projection_x_coordinate
+
+> x2
+    column = 
+    variable = easting
+    standard_name = projection_x_coordinate
+    long_name = easting; UTM
+    units = m
+
+
+# The auxiliary Y coordinate 
+# Could be longitude for the geographic coordinate system, or easting for UTM projection, etc.:
+#
+# NOTE: Include only if x2 above is included.
+#
+# NOTE: LEAVE the column field EMPTY if you want the code to compute the auxiliary coordinate.
+#
+#
+# column: The column heading in the data file:
+# variable: the dimension variable name.
+# standard_name: a CF-compliant standard name. Please consult the CF Standard Name Table
+# Do not include the standard_name if one is not available.
+# (https://cfconventions.org/Data/cf-standard-names/current/build/cf-standard-name-table.html).
+# long_name: Text that describes the variable more fully.
+# units: Variable's units
+#    standard_name = projection_y_coordinate
+
+> y2
+    column = northing
+    variable = northing
+    long_name = northing; UTM
+    units = m
+    standard_name = projection_y_coordinate
+
+
+# variables
+# A compilation of model variables metadata. 
+# Repeat the >> subgroup for as many variables as needed.
+#
+# Each model variable metadata includes:
+# column: The column heading in the data file:
+# variable: the model variable name. It is recommended to use a CF-compliant standard name. 
+# Please consult the Guidelines for Construction of CF Standard Names
+# (https://cfconventions.org/Data/cf-standard-names/docs/guidelines.html).
+# long_name: Text that describes the variable more fully.
+# display_name: Text to use for variable display. 
+# grid_ref: Text A recognized grid coordinate system (Currently supporting, latitude_longitude and mercator)
+# data_source:  describes the origin of the data for this variable:
+#       If the data is derived from observations, the source attribute should be set to “data-derived.”
+#       If the data is derived from an empirical formula, the source attribute should indicate how the variable was derived.
+#
+#       For example:
+#            >> vp
+#               data_source = data-derived
+#            >> vs
+#               data_source = assumed to follow vp as vs = vp / 3
+> variables 
+    >> depth
+        column = depth
+        variable = depth
+        dimensions = 2
+        long_name = Slab depth 
+        display_name = Slab depth (km)
+        grid_ref = latitude_longitude
+        units = km
+        data_source = data-derived

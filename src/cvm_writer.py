@@ -244,11 +244,12 @@ def main():
         # What is the z variable?
         z_var = ""
         if "z" in metadata:
-            try:
-                z_var = metadata["z"]["variable"]
-            except Exception as ex:
-                logger.error(f"[ERR] Missing metadata['z']['variable']")
-                sys.exit()
+            if metadata["z"] is not None:
+                try:
+                    z_var = metadata["z"]["variable"]
+                except Exception as ex:
+                    logger.error(f"[ERR] Missing metadata['z']['variable']")
+                    sys.exit()
         message = meta_lib.write_json_metadata(
             f"{output}_metadata",
             metadata_dict,
