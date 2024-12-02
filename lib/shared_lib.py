@@ -26,6 +26,13 @@ import stat
 import time
 
 
+def supports_unicode():
+    # Check if the output supports Unicode \
+    # and ensuring no exception occurs
+    encoding = sys.stdout.encoding or ""
+    return "UTF-8" in encoding.upper() or "UTF8" in encoding.upper()
+
+
 def list_files_in_directory_from_file(file_path):
     """
     Lists the files in the directory containing the specified file and returns the message as a string.
