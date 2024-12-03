@@ -496,48 +496,96 @@ def main():
                             logger.info(
                                 "\nThe model coordinate ranges for the cross-section are:"
                             )
+                            xvar = "longitude"
+                            yvar = "latitude"
+                            zvar = "depth"
+                            coords_list = list(ds.coords.keys())
 
-                            for var in ds.coords:
+                            # Remove the auxiliary coordinates.
+                            if "northing" in coords_list:
+                                coords_list.remove("northing")
+                            if "easting" in coords_list:
+                                coords_list.remove("easting")
+
+                            do_warn = True
+                            if xvar not in ds.coords or yvar not in ds.coords:
+                                logger.err(
+                                    f"[ERR] x-section is only only available from model geographic coordinates!"
+                                )
+                                continue
+
+                            coords_list.remove(xvar)
+                            coords_list.remove(yvar)
+
+                            if zvar not in ds.coords:
+                                if do_warn:
+                                    logger.info(
+                                        f"[WAR] Plotting a non-geospatial cross-section"
+                                    )
+                                    do_warn = False
+                                _z = zvar
+                                while _z not in coords_list:
+                                    if _z == "back":
+                                        continue
+                                    elif _z == "exit":
+                                        sys.exit()
+
+                                    _z = input(
+                                        f"[xsection] Z-variable? [valid variables are: {coords_list}; back, exit]: "
+                                    )
+                                zvar = _z
+                            coords_list.remove(zvar)
+                            for var in (xvar, yvar, zvar):
                                 if "units" not in ds[var].attrs:
                                     logger.error(f"Missing units for variable '{var}'")
                                     sys.exit(2)
-                                # Cross-sections use geographic coordinates.
-                                if var in ["latitude", "longitude", "depth"]:
-                                    logger.info(
-                                        f"\t{var}: {np.nanmin(ds[var].data):0.2f} to  {np.nanmax(ds[var].data):0.2f} {ds[var].attrs['units']}"
-                                    )
+
+                                logger.info(
+                                    f"\t{var}: {np.nanmin(ds[var].data):0.2f} to  {np.nanmax(ds[var].data):0.2f} {ds[var].attrs['units']}"
+                                )
 
                             # Get the unit of the depth
-                            z_unit = ds["depth"].attrs.get(
+                            _z_unit = ds[zvar].attrs.get(
                                 "units", "No unit attribute found"
                             )
-                            depth_unit = lib.standard_units(z_unit)
+                            z_unit = lib.standard_units(_z_unit)
+                            if zvar == "depth":
+                                units = "cgs"
+                                if z_unit == "km":
+                                    units = "mks"
 
-                            units = "cgs"
-                            if depth_unit == "km":
+                                logger.info(
+                                    f"[INFO] The {zvar} unit is detected as: {_z_unit}, will use: {z_unit}. Units set distance units based on: {units}"
+                                )
+                            else:
                                 units = "mks"
 
-                            logger.info(
-                                f"[INFO] The depth unit is detected as: {z_unit}, will use: {depth_unit}. Units set distance units based on: {units}"
-                            )
-                            start = slicer_lib.get_point("start")
+                            start = slicer_lib.get_point("start", (xvar, yvar, zvar))
                             if start == "back":
                                 subset_type = "back"
                                 break
-                            end = slicer_lib.get_point("end")
+                            end = slicer_lib.get_point("end", (xvar, yvar, zvar))
                             if end == "back":
                                 subset_type = "back"
                                 break
-                            depth = slicer_lib.get_point("depth")
-                            if depth == "back":
+                            depth_range = slicer_lib.get_point("z", (xvar, yvar, zvar))
+                            if depth_range == "back":
                                 subset_type = "back"
                                 break
 
                             try:
                                 depth = [
-                                    min(float(depth[0]), float(depth[1])),
-                                    max(float(depth[0]), float(depth[1])),
+                                    min(float(depth_range[0]), float(depth_range[1])),
+                                    max(float(depth_range[0]), float(depth_range[1])),
                                 ]
+                                if zvar == "depth":
+                                    input_depth = depth
+                                else:
+                                    input_depth = [
+                                        float(depth_range[0]),
+                                        float(depth_range[1]),
+                                    ]
+
                             except Exception as ex:
                                 logger.error(f"[ERR] Bad depth values {depth}\n{ex}")
                                 subset_type = "back"
@@ -545,8 +593,8 @@ def main():
 
                             plot_data = ds.copy()
                             plot_data = plot_data.where(
-                                (plot_data.depth >= float(depth[0]))
-                                & (plot_data.depth <= float(depth[1])),
+                                (plot_data[zvar] >= float(depth[0]))
+                                & (plot_data[zvar] <= float(depth[1])),
                                 drop=True,
                             )
                             utm_zone = None
@@ -738,7 +786,8 @@ def main():
                                         elif _action == "plot":
                                         """
                                     pdata = xsection_data.copy()
-                                    pdata["depth"] = -pdata["depth"]
+                                    if zvar == "depth":
+                                        pdata[zvar] = -pdata[zvar]
 
                                     if vmin and vmax:
                                         pdata[plot_var].plot.contourf(
@@ -766,7 +815,14 @@ def main():
                                             plt.gca().set_aspect(exaggeration)
 
                                     # Set the depth limits for display.
-                                    plt.ylim(-depth[1], -depth[0])
+                                    if zvar == "depth":
+                                        z_factor = -1
+                                        plt.ylim(
+                                            z_factor * depth[1], z_factor * depth[0]
+                                        )
+                                    else:
+                                        z_factor = 1
+                                        plt.ylim(input_depth[0], input_depth[1])
 
                                     # plt.gca().invert_yaxis()  # Invert the y-axis to show depth increasing downwards
                                     # Getting current y-axis tick labels
@@ -781,7 +837,8 @@ def main():
                                     new_labels = [
                                         (
                                             custom_formatter(
-                                                -1.0 * float(label.replace("−", "-"))
+                                                z_factor
+                                                * float(label.replace("−", "-"))
                                             )
                                             if label
                                             else 0.0
@@ -821,9 +878,7 @@ def main():
                                     )
 
                                     # Add title if the model name is available.
-                                    plt.title(
-                                        f"{base_title} - {subtitle} of {plot_var}"
-                                    )
+                                    plt.title(f"{base_title}\n{subtitle} of {plot_var}")
 
                                     # Adjust the layout
                                     plt.tight_layout()
@@ -932,6 +987,8 @@ def main():
                                     slice_dims = coords.copy()
                                     slice_dims.remove(slice_dir)
                                     slice_limits = dict()
+                                    slice_input_limits = dict()
+                                    slice_input_order = list()
                                     gmap_limits = dict()
                                     gmap_option = ""
                                     # Geographic coordinates?
@@ -956,6 +1013,7 @@ def main():
                                             np.nanmin(ds[dim].data),
                                             np.nanmax(ds[dim].data),
                                         )
+
                                         messages.append(
                                             f"Slicing at the closest {slice_dir} of {closest_slice_value}"
                                         )
@@ -982,6 +1040,11 @@ def main():
                                         if _limits:
                                             values = _limits.split(",")
                                             try:
+                                                slice_input_limits[dim] = [
+                                                    float(values[0]),
+                                                    float(values[1]),
+                                                ]
+                                                slice_input_order.append(dim)
                                                 slice_limits[dim] = (
                                                     min(
                                                         float(values[0]),
@@ -992,6 +1055,12 @@ def main():
                                                         float(values[1]),
                                                     ),
                                                 )
+
+                                                if dim in gmap_limits:
+                                                    gmap_limits[dim] = (
+                                                        slice_input_limits[dim]
+                                                    )
+
                                             except Exception as ex:
                                                 messages.append(
                                                     f"[ERR] Invalid limits {_limits}.\n{ex}"
@@ -1000,6 +1069,8 @@ def main():
                                                 break
                                         else:
                                             _limits = slice_limits[dim]
+                                            slice_input_order.append(dim)
+                                            slice_input_limits[dim] = slice_limits[dim]
                                     # Slice the data.
                                     if _limits == "back":
                                         break
@@ -1077,6 +1148,17 @@ def main():
                                                             plot_data["depth"] = (
                                                                 -plot_data["depth"]
                                                             )
+                                                            slice_input_limits[
+                                                                "depth"
+                                                            ] = [
+                                                                -1 * element
+                                                                for element in slice_limits[
+                                                                    "depth"
+                                                                ]
+                                                            ]
+                                                            slice_input_limits[
+                                                                "depth"
+                                                            ].sort()
                                                 if vmin and vmax:
                                                     plot_data.plot(
                                                         cmap=cmap, vmin=vmin, vmax=vmax
@@ -1084,9 +1166,12 @@ def main():
                                                 else:
                                                     plot_data.plot(cmap=cmap)
                                                 plt.title(
-                                                    f"{base_title} - {subtitle} of {plot_var} at {sliced_data[slice_dir].values}  {sliced_data[slice_dir].attrs['units']}"
+                                                    f"{base_title}\n{subtitle} of {plot_var} at {sliced_data[slice_dir].values}  {sliced_data[slice_dir].attrs['units']}"
                                                 )
                                                 # Adjust the layout
+                                                dims = list(sliced_data.dims.keys())
+                                                plt.xlim(slice_input_limits[dims[1]])
+                                                plt.ylim(slice_input_limits[dims[0]])
                                                 plt.tight_layout()
                                                 plt.show()
                                                 if len(data_var) <= 1:
@@ -1123,7 +1208,7 @@ def main():
                                                         cmap=cmap,
                                                     )
                                                 plt.title(
-                                                    f"{base_title} - {subtitle} of {plot_var} at {sliced_data[slice_dir].values} {sliced_data[slice_dir].attrs['units']}"
+                                                    f"{base_title}\n{subtitle} of {plot_var} at {sliced_data[slice_dir].values} {sliced_data[slice_dir].attrs['units']}"
                                                 )
                                                 # Adjust the layout
                                                 plt.tight_layout()
@@ -1153,6 +1238,7 @@ def main():
                                                         f"[ERR] Invalid input {plot_var}"
                                                     )
                                                     continue
+                                                print(">>>>>>", gmap_limits)
                                                 slicer_lib.gmap(
                                                     plot_var,
                                                     cmap,
@@ -1160,7 +1246,7 @@ def main():
                                                     sliced_data,
                                                     vmin=vmin,
                                                     vmax=vmax,
-                                                    title=f"{base_title}, {subtitle} of {plot_var} at {sliced_data[slice_dir].values} {sliced_data[slice_dir].attrs['units']}",
+                                                    title=f"{base_title}\n{subtitle} of {plot_var} at {sliced_data[slice_dir].values} {sliced_data[slice_dir].attrs['units']}",
                                                 )
                                                 if len(data_var) <= 1:
                                                     plot_var = "back"

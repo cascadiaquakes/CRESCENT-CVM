@@ -27,7 +27,7 @@ import shared_lib as lib
 logger = lib.get_logger()
 
 
-def get_point(location):
+def get_point(location, vars):
     f"""
     Get the coordinates for a point.
 
@@ -36,13 +36,13 @@ def get_point(location):
     """
     point = None
     while point is None:
-        if location != "depth":
+        if location in ("start", "end"):
             point = input(
-                f"[slice-xsection] Cross-section {location} point as lat,lon ['back', 'exit']? "
+                f"[slice-xsection] Cross-section {location} point as {vars[0]},{vars[1]} ['back', 'exit']? "
             )
         else:
             point = input(
-                f"[slice-xsection] Cross-section depth range as start, end ['back', 'exit']? "
+                f"[slice-xsection] Cross-section {vars[2]} range as start, end ['back', 'exit']? "
             )
 
         # Done, back!
@@ -51,13 +51,13 @@ def get_point(location):
         elif point.strip() == "back" or not point.strip():
             return "back"
         elif "," not in point:
-            if location != "depth":
+            if location in ("start", "end"):
                 logger.error(
-                    f"[ERR] invalid {location} coordinates '{point}' input {location} as lat,lon"
+                    f"[ERR] invalid {location} coordinates '{point}' input {location} as {vars[0]},{vars[1]}"
                 )
             else:
                 logger.error(
-                    f"[ERR] invalid {location} range '{point}' input {location} as start, end depths"
+                    f"[ERR] invalid {location} range '{point}' input {location} as start, end {vars[2]}"
                 )
             point = None
         else:
@@ -65,17 +65,17 @@ def get_point(location):
                 point = point.split(",")
                 if len(point) != 2:
                     logger.error(
-                        f"[ERR] invalid {location} range '{point}' input {location} as start, end depths"
+                        f"[ERR] invalid {location} range '{point}' input {location} as start, end {vars[2]}"
                     )
                     point = None
                 point = [float(i) for i in point]
                 if location in ("start", "end"):
-                    if lib.is_in_range(point[0], "latitude") and lib.is_in_range(
-                        point[1], "longitude"
+                    if lib.is_in_range(point[0], vars[0]) and lib.is_in_range(
+                        point[1], vars[1]
                     ):
                         break
                     logger.error(
-                        f"[ERR] invalid latitude,longitude pair: {point[0]},{point[1]}"
+                        f"[ERR] invalid {vars[0]},{vars[1]} pair: {point[0]},{point[1]}"
                     )
                     point = None
                 # Depth.
@@ -297,8 +297,8 @@ def interpolate_path(
         xarray.Dataset: The interpolated dataset along the path.
     """
     # Create linearly spaced points between start and end
-    lat_points = np.linspace(start[0], end[0], num_points)
-    lon_points = np.linspace(start[1], end[1], num_points)
+    lat_points = np.linspace(start[1], end[1], num_points)
+    lon_points = np.linspace(start[0], end[0], num_points)
 
     # Define a path dataset for interpolation
     path = xr.Dataset(
