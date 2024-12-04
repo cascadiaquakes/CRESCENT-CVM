@@ -102,10 +102,20 @@ def get_netcdf_engine(filename):
     return None
 
 
-def display_range(ds):
+def display_range(ds, ds_type):
     """Output ranges for the given dataset."""
-    logger.info("\nRanges:")
-    for var in ds.variables:
+    logger.info(f"\n{ds_type} netCDF file:")
+    logger.info(f"\n[Range] Coordinate Variables:")
+    for var in list(ds.dims):
+        if "units" not in ds[var].attrs:
+            logger.error(f"Missing units for variable '{var}'")
+            sys.exit(2)
+
+        logger.info(
+            f"\t{var}: {np.nanmin(ds[var].data):0.2f} to  {np.nanmax(ds[var].data):0.2f} {ds[var].attrs['units']}"
+        )
+    logger.info(f"\n[Range] Data Variables:")
+    for var in list(ds.data_vars):
         if "units" not in ds[var].attrs:
             logger.error(f"Missing units for variable '{var}'")
             sys.exit(2)
@@ -116,8 +126,9 @@ def display_range(ds):
     logger.info("\n")
 
 
-def display_metadata(ds):
+def display_metadata(ds, ds_type):
     """Output metadata for the given dataset."""
+    logger.info(f"\n[Metadata] {ds_type} netCDF file\n")
     logger.info(f"\n[Metadata] Global attributes:\n")
     for row in ds.attrs:
         if "geospatial" in row:
@@ -126,6 +137,8 @@ def display_metadata(ds):
     logger.info(f"\n[Metadata] Coordinate Variables:")
     indent = 14
     slicer_lib.display_var_meta(ds, list(ds.dims), indent)
+
+    logger.info(f"\n[Metadata] Data Variables:")
     slicer_lib.display_var_meta(ds, list(ds.data_vars), indent, values=False)
     logger.info("\n")
 
@@ -208,6 +221,44 @@ def output_data(subset_volume, filename, messages):
     return messages
 
 
+def determine_dataset_type_by_data_vars(dataset):
+    """
+    Determine whether the dataset is 2D or 3D based on the number of dimensions of its data variables.
+
+    Parameters:
+        dataset (xarray.Dataset): The xarray dataset to evaluate.
+
+    Returns:
+        str: "2D" if the dataset contains primarily two-dimensional data variables,
+             "3D" if three-dimensional data variables are present,
+             or "Unknown" if no clear determination can be made.
+    """
+    # Initialize counters for 2D and 3D variables
+    is_2d = False
+    is_3d = False
+
+    # Iterate over data variables and check their dimensionality
+    for var_name, data_array in dataset.data_vars.items():
+        num_dims = len(
+            data_array.dims
+        )  # Count the number of dimensions for the variable
+
+        if num_dims == 2:
+            is_2d = True
+        elif num_dims == 3:
+            is_3d = True
+
+        # If both 2D and 3D are found, prioritize 3D as the dataset type
+        if is_3d:
+            return "3D"
+
+    # Determine dataset type based on findings
+    if is_2d:
+        return "2D"
+    else:
+        return "Unknown"
+
+
 def main():
     vmin = None
     vmax = None
@@ -274,7 +325,7 @@ def main():
                 f"slice the data, plot, and save the sliced data. Slicing can be performed along the existing coordinate\n"
                 f"planes or as an interpolated cross-sectional slice through gridded data.\n\n"
             )
-        messages.append(f"[INFO] Loaded {input_file} and it is a netCDF file")
+
         engine = get_netcdf_engine(input_file)
         with xr.open_dataset(input_file, engine=engine) as ds:
             base_title = ""
@@ -282,6 +333,12 @@ def main():
                 base_title = ds.attrs["model"]
             elif "id" in ds.attrs:
                 base_title = ds.attrs["id"]
+
+            # Determine if the dataset is 2D or 3D
+            dataset_type = determine_dataset_type_by_data_vars(ds)
+            messages.append(
+                f"[INFO] Loaded {input_file} and it is {dataset_type} netCDF file"
+            )
 
             data_var = list(ds.data_vars)
             coordinates = list(ds.coords)
@@ -335,11 +392,11 @@ def main():
 
                 # Variables value range.
                 elif option == "range":
-                    display_range(ds)
+                    display_range(ds, dataset_type)
 
                 # Display the metadata.
                 elif option == "meta":
-                    display_metadata(ds)
+                    display_metadata(ds, dataset_type)
 
                 # Subset the model.
                 elif option == "subset":
@@ -347,18 +404,51 @@ def main():
                     # Actions.
                     while subset_type != "back":
                         # f"\nSubset type [volume, slice, xsection, back, exit]? "
-                        if verbose:
-                            logger.info(
-                                f"\nYou can subset the data as a:\n\tvolume - a subvolume of data\n\tslice - a slice along a coordinate axes\n\txsection - a vertical slice in an arbitrary direction\n\t{dash}\n\tback - takes you to the previous step\n\texit "
+
+                        if dataset_type == "2D":
+                            if verbose:
+                                logger.info(
+                                    f"\nYou can subset the data as a:"
+                                    f"\n\tvolume - a subvolume of data"
+                                    f"\n\tsurface - a surface plot of a 2D variable"
+                                    f"\n\t{dash}"
+                                    f"\n\tback - takes you to the previous step\n\texit "
+                                )
+                            selection_list = ["volume", "surface", "back", "exit"]
+                            subset_type = input(
+                                f"[subset] select [volume, surface, back, exit]? "
                             )
-                        subset_type = input(
-                            f"[subset] select [volume, slice, xsection, back, exit]? "
-                        )
+                        else:
+                            if verbose:
+                                logger.info(
+                                    f"\nYou can subset the data as a:"
+                                    f"\n\tvolume - a subvolume of data"
+                                    f"\n\tslice - a slice along a coordinate axes"
+                                    f"\n\txsection - a vertical slice in an arbitrary direction"
+                                    f"\n\t{dash}"
+                                    f"\n\tback - takes you to the previous step\n\texit "
+                                )
+                            selection_list = [
+                                "volume",
+                                "slice",
+                                "xsection",
+                                "back",
+                                "exit",
+                            ]
+                            subset_type = input(
+                                f"[subset] select [volume, slice, xsection, back, exit]? "
+                            )
+
+                        # Did user make a valid selection?
+                        if subset_type not in selection_list:
+                            continue
+
                         # Done, back!
                         if subset_type.strip() == "exit":
                             sys.exit()
                         elif subset_type.strip() == "back" or not option.strip():
                             break
+
                         if subset_type == "volume":
                             subtitle = "volume"
                             # Get the volume limits.
@@ -429,7 +519,7 @@ def main():
                                 break
                             # warnings: Checking for all NaN values
                             subset_volume, warnings = slicer_lib.subsetter(
-                                ds, subset_limits
+                                ds, subset_limits, dataset_type
                             )
 
                             if not warnings:
@@ -469,13 +559,15 @@ def main():
                                 else:
                                     try:
                                         filename, file_type = file_info.split(",")
+                                        filename = filename.strip()
+                                        file_type = file_type.strip()
                                     except Exception as ex:
                                         messages.append(
                                             f"[ERR] Bad input: {file_info}\n{ex}"
                                         )
                                         continue
 
-                                    if file_type.strip() not in valid_file_types:
+                                    if file_type not in valid_file_types:
                                         messages.append(f"[ERR] Bad input: {file_info}")
                                         continue
                                     else:
@@ -913,27 +1005,43 @@ def main():
                                                 messages = output_messages(messages)
                                         """
 
-                        elif subset_type == "slice":
+                        elif subset_type in ["slice", "surface"]:
                             # Slice the model.
                             slice_dir = "depth"
                             while slice_dir:
-                                if verbose:
-                                    logger.info(
-                                        f"\nA slice cuts the model along one of the coordinate axes.\n\tdirection - direction of the slice, the coordinate to cut the model along\n\t{dash}\n\tback - takes you to the previous step\n\texit  "
+
+                                if subset_type == "slice":
+                                    if verbose:
+                                        logger.info(
+                                            f"\nA slice cuts the model along one of the coordinate axes."
+                                            f"\n\tdirection - direction of the slice, the coordinate to cut the model along"
+                                            f"\n\t{dash}\n\tback - takes you to the previous step\n\texit  "
+                                        )
+                                    messages = output_messages(messages)
+                                    slice_dir = input(
+                                        f"[subset-slice] direction [{', '.join(main_coords+['back', 'exit'])}]? "
                                     )
-                                messages = output_messages(messages)
-                                slice_dir = input(
-                                    f"[subset-slice] direction [{', '.join(main_coords+['back', 'exit'])}]? "
-                                )
-                                subtitle = f"{slice_dir} slice"
+                                    subtitle = f"{slice_dir} slice"
+                                else:
+                                    if verbose:
+                                        logger.info(
+                                            f"\nA surface displays a surface plot of a 2D variable."
+                                            f"\n\t{dash}\n\tback - takes you to the previous step\n\texit  "
+                                        )
+                                    subtitle = "surface plot"
+
                                 # Decide on the coordinate system to work with.
                                 # If in both, choose the geographic one.
                                 coords = main_coords
-                                if slice_dir in main_coords and slice_dir in aux_coords:
-                                    if "latitude" not in coords:
+                                if subset_type == "slice":
+                                    if (
+                                        slice_dir in main_coords
+                                        and slice_dir in aux_coords
+                                    ):
+                                        if "latitude" not in coords:
+                                            coords = aux_coords
+                                    elif slice_dir not in coords:
                                         coords = aux_coords
-                                elif slice_dir not in coords:
-                                    coords = aux_coords
                                 # Done, back!
                                 if slice_dir.strip() == "exit":
                                     sys.exit()
@@ -941,51 +1049,58 @@ def main():
                                     # messages.append(f"[ERR] invalid variable {slice_dir}")
                                     slice_dir = "back"
                                     break
-                                elif slice_dir not in coords or not slice_dir.strip():
+                                elif (
+                                    slice_dir not in coords or not slice_dir.strip()
+                                ) and subset_type != "surface":
                                     messages.append(
                                         f"[ERR] invalid selection {slice_dir}"
                                     )
                                     continue
                                 # Explore what to do with the slice?
                                 else:
-                                    slice_value = None
-                                    while slice_value is None:
-                                        messages = output_messages(messages)
-                                        slice_value = input(
-                                            f"[subset-slice-{slice_dir}] {slice_dir} [{np.nanmin(ds[slice_dir].data)} to {np.nanmax(ds[slice_dir].data)}, back, exit]? "
-                                        )
+                                    if subset_type == "slice":
+                                        slice_value = None
+                                        while slice_value is None:
+                                            messages = output_messages(messages)
+                                            slice_value = input(
+                                                f"[subset-slice-{slice_dir}] {slice_dir} [{np.nanmin(ds[slice_dir].data)} to {np.nanmax(ds[slice_dir].data)}, back, exit]? "
+                                            )
 
-                                        # Exit.
-                                        if slice_value.strip() == "exit":
-                                            sys.exit()
-                                        # A step back.
-                                        elif (
-                                            slice_value.strip() == "back"
-                                            or not slice_value.strip()
-                                        ):
-                                            slice_value = "back"
-                                            break
-                                        else:
-                                            try:
-                                                slice_value = float(slice_value)
-                                            except Exception as ex:
-                                                messages.append(
-                                                    f"[ERR] invalid value {slice_value}\n{ex}"
-                                                )
-                                                slice_value = None
+                                            # Exit.
+                                            if slice_value.strip() == "exit":
+                                                sys.exit()
+                                            # A step back.
+                                            elif (
+                                                slice_value.strip() == "back"
+                                                or not slice_value.strip()
+                                            ):
+                                                slice_value = "back"
+                                                break
+                                            else:
+                                                try:
+                                                    slice_value = float(slice_value)
+                                                except Exception as ex:
+                                                    messages.append(
+                                                        f"[ERR] invalid value {slice_value}\n{ex}"
+                                                    )
+                                                    slice_value = None
+                                            if slice_value == "back":
+                                                break
+                                        # Actions.
+                                        # while slice_value:
                                         if slice_value == "back":
                                             break
-                                    # Actions.
-                                    # while slice_value:
-                                    if slice_value == "back":
-                                        break
-                                    closest_slice_value = lib.closest(
-                                        coordinate_values[slice_dir],
-                                        slice_value,
-                                    )
+                                        closest_slice_value = lib.closest(
+                                            coordinate_values[slice_dir],
+                                            slice_value,
+                                        )
+                                        messages.append(
+                                            f"Slicing at the closest {slice_dir} of {closest_slice_value}"
+                                        )
 
                                     slice_dims = coords.copy()
-                                    slice_dims.remove(slice_dir)
+                                    if subset_type == "slice":
+                                        slice_dims.remove(slice_dir)
                                     slice_limits = dict()
                                     slice_input_limits = dict()
                                     slice_input_order = list()
@@ -1012,10 +1127,6 @@ def main():
                                         slice_limits[dim] = (
                                             np.nanmin(ds[dim].data),
                                             np.nanmax(ds[dim].data),
-                                        )
-
-                                        messages.append(
-                                            f"Slicing at the closest {slice_dir} of {closest_slice_value}"
                                         )
 
                                         if verbose:
@@ -1074,12 +1185,20 @@ def main():
                                     # Slice the data.
                                     if _limits == "back":
                                         break
-                                    sliced_data = slicer_lib.slicer(
-                                        ds,
-                                        slice_dir,
-                                        closest_slice_value,
-                                        slice_limits,
-                                    )
+                                    if subset_type == "slice":
+                                        sliced_data = slicer_lib.slicer(
+                                            ds,
+                                            slice_dir,
+                                            closest_slice_value,
+                                            slice_limits,
+                                        )
+                                    else:
+                                        sliced_data = slicer_lib.slicer(
+                                            ds,
+                                            slice_dir,
+                                            None,
+                                            slice_limits,
+                                        )
                                     messages.append(
                                         f"\nThe sliced data summary: \n{sliced_data}"
                                     )
@@ -1165,9 +1284,15 @@ def main():
                                                     )
                                                 else:
                                                     plot_data.plot(cmap=cmap)
-                                                plt.title(
-                                                    f"{base_title}\n{subtitle} of {plot_var} at {sliced_data[slice_dir].values}  {sliced_data[slice_dir].attrs['units']}"
-                                                )
+
+                                                if subset_type == "slice":
+                                                    plt.title(
+                                                        f"{base_title}\n{subtitle} of {plot_var} at {sliced_data[slice_dir].values}  {sliced_data[slice_dir].attrs['units']}"
+                                                    )
+                                                else:
+                                                    plt.title(
+                                                        f"{base_title}\n{plot_var} Surface Plot"
+                                                    )
                                                 # Adjust the layout
                                                 dims = list(sliced_data.dims.keys())
                                                 plt.xlim(slice_input_limits[dims[1]])
@@ -1207,9 +1332,15 @@ def main():
                                                     sliced_data[plot_var].plot.surface(
                                                         cmap=cmap,
                                                     )
-                                                plt.title(
-                                                    f"{base_title}\n{subtitle} of {plot_var} at {sliced_data[slice_dir].values} {sliced_data[slice_dir].attrs['units']}"
-                                                )
+
+                                                if subset_type == "slice":
+                                                    plt.title(
+                                                        f"{base_title}\n{subtitle} of {plot_var} at {sliced_data[slice_dir].values} {sliced_data[slice_dir].attrs['units']}"
+                                                    )
+                                                else:
+                                                    plt.title(
+                                                        f"{base_title}\n{plot_var} Surface Plot"
+                                                    )
                                                 # Adjust the layout
                                                 plt.tight_layout()
                                                 plt.show()
@@ -1238,7 +1369,15 @@ def main():
                                                         f"[ERR] Invalid input {plot_var}"
                                                     )
                                                     continue
-                                                print(">>>>>>", gmap_limits)
+
+                                                if subset_type == "slice":
+                                                    title = (
+                                                        f"{base_title}\n{subtitle} of {plot_var} at {sliced_data[slice_dir].values} {sliced_data[slice_dir].attrs['units']}",
+                                                    )
+
+                                                else:
+                                                    title = f"{base_title}\n{plot_var} Surface Plot"
+
                                                 slicer_lib.gmap(
                                                     plot_var,
                                                     cmap,
@@ -1246,7 +1385,7 @@ def main():
                                                     sliced_data,
                                                     vmin=vmin,
                                                     vmax=vmax,
-                                                    title=f"{base_title}\n{subtitle} of {plot_var} at {sliced_data[slice_dir].values} {sliced_data[slice_dir].attrs['units']}",
+                                                    title=title,
                                                 )
                                                 if len(data_var) <= 1:
                                                     plot_var = "back"

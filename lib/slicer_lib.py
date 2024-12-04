@@ -118,7 +118,7 @@ def slicer(ds, slice_dir, slice_value, slice_limits):
 
     Call arguments:
         ds - [required] the xarray dataset
-        slice_dire - [required] the variable name along which to slice
+        slice_dir - [required] the variable name along which to slice (None for surface plot)
         slice_value - [required] the slice location
         slice_limits - [required] limits of the slice in other directions.
     """
@@ -132,37 +132,52 @@ def slicer(ds, slice_dir, slice_value, slice_limits):
         & (ds[slice_limits_keys[1]] <= slice_limits_values[1][1]),
         drop=True,
     )
-    sliced_data = sliced_data.sel({slice_dir: float(slice_value)})
+    if slice_value is not None:
+        sliced_data = sliced_data.sel({slice_dir: float(slice_value)})
     return sliced_data
 
 
-def subsetter(ds, limits):
+def subsetter(ds, limits, ds_type):
     """
     Subset a dataset as a volume.
 
     Call arguments:
         ds - [required] the xarray dataset
         limits - [required] limits of the volume in all directions.
+        ds_type - [required] dataset type 2D or 3D
     """
     geospatial_dict = {
         "latitude": ["geospatial_lat_min", "geospatial_lat_max"],
         "longitude": ["geospatial_lon_min", "geospatial_lon_max"],
-        "depth": ["geospatial_vertical_min", "geospatial_vertical_max"],
     }
+    if ds_type == "3D":
+        geospatial_dict["depth"] = (
+            ["geospatial_vertical_min", "geospatial_vertical_max"],
+        )
+
     # Check if the array has any zero-sized dimensions
     warnings = ""
     try:
         limit_keys = list(limits.keys())
         limit_values = list(limits.values())
-        sliced_data = ds.where(
-            (ds[limit_keys[0]] >= limit_values[0][0])
-            & (ds[limit_keys[0]] <= limit_values[0][1])
-            & (ds[limit_keys[1]] >= limit_values[1][0])
-            & (ds[limit_keys[1]] <= limit_values[1][1])
-            & (ds[limit_keys[2]] >= limit_values[2][0])
-            & (ds[limit_keys[2]] <= limit_values[2][1]),
-            drop=True,
-        )
+        if ds_type == "3D":
+            sliced_data = ds.where(
+                (ds[limit_keys[0]] >= limit_values[0][0])
+                & (ds[limit_keys[0]] <= limit_values[0][1])
+                & (ds[limit_keys[1]] >= limit_values[1][0])
+                & (ds[limit_keys[1]] <= limit_values[1][1])
+                & (ds[limit_keys[2]] >= limit_values[2][0])
+                & (ds[limit_keys[2]] <= limit_values[2][1]),
+                drop=True,
+            )
+        else:
+            sliced_data = ds.where(
+                (ds[limit_keys[0]] >= limit_values[0][0])
+                & (ds[limit_keys[0]] <= limit_values[0][1])
+                & (ds[limit_keys[1]] >= limit_values[1][0])
+                & (ds[limit_keys[1]] <= limit_values[1][1]),
+                drop=True,
+            )
 
         for dim in limit_keys:
             if dim in geospatial_dict:
