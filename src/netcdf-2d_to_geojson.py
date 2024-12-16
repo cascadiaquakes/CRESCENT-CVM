@@ -41,6 +41,7 @@ def grd_to_geojson_surface(
     lon_var,
     z_var,
     depth_unit="km",
+    depth_positive="down",
     minify=False,
     decimation_factor=2,
     grid_type="rectangular",
@@ -101,8 +102,25 @@ def grd_to_geojson_surface(
                 continue
 
             # If z represents depth, convert it to meters and make it negative (depth is positive down)
+            if depth_positive == "up":
+                depth_factor = 1
+            else:
+                depth_factor = -1
+
             if depth_unit == "km":
-                z1, z2, z3, z4 = -z1 * 1000, -z2 * 1000, -z3 * 1000, -z4 * 1000
+                z1, z2, z3, z4 = (
+                    depth_factor * z1 * 1000,
+                    depth_factor * z2 * 1000,
+                    depth_factor * z3 * 1000,
+                    depth_factor * z4 * 1000,
+                )
+            else:
+                z1, z2, z3, z4 = (
+                    depth_factor * z1,
+                    depth_factor * z2,
+                    depth_factor * z3,
+                    depth_factor * z4,
+                )
 
             # Create the grid based on the selected grid type
             if grid_type == "rectangular":
@@ -206,6 +224,10 @@ depth_unit = prompt_for_input(
     "Enter the depth unit", default="km", valid_options=["km", "m"]
 )
 
+depth_positive = prompt_for_input(
+    "Enter the depth positive direction", default="down", valid_options=["down", "up"]
+)
+
 decimation_factor = int(
     prompt_for_input("Enter the decimation factor (integer)", default="2")
 )
@@ -233,6 +255,7 @@ grd_to_geojson_surface(
     longitude,
     depth,
     depth_unit=depth_unit,
+    depth_positive=depth_positive,
     minify=minify,
     decimation_factor=decimation_factor,
     grid_type=grid_type,

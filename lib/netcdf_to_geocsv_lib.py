@@ -112,7 +112,8 @@ def json_metadata(input_file):
     return output_json
 
 
-def geocsv_to_netcdf(
+# This function is not used and should be removed if no error occurs.
+def geocsv_to_netcdf_old(
     input_file,
     caller="cvm_convert.py",
 ):

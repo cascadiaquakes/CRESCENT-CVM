@@ -83,7 +83,7 @@ def check_netcdf_file(file_name):
                 f"Error determining file format: {e} {failmark}"
             )
 
-        print(
+        output(
             f"\n=== NetCDF File Check ===\nFile: {file_name}\nSize: {file_size / (1024 ** 2):.2f} MB\nFile Type: {metadata_summary['File Type']}"
         )
 
@@ -584,7 +584,7 @@ def list_variables(dataset, primary_coords):
             else:
                 model_variables[var_name] = var_summary
 
-        output("Coordinate Variables:", indent=True)
+        output("\nCoordinate Variables:", indent=True)
         for var_name, summary in coordinate_variables.items():
             output(
                 f"- {var_name}: Range = {summary['Range']}, Units = {summary['Units']}, Dimensions = {summary['Dimensions']} {checkmark}",
@@ -598,13 +598,25 @@ def list_variables(dataset, primary_coords):
                     level=3,
                 )
 
-        output("Model Variables:", indent=True)
+        output("\nModel Variables:", indent=True)
         for var_name, summary in model_variables.items():
+            mark = checkmark
+            if var_name not in prop.valid_variable_list:
+                mark = failmark
+
             output(
-                f"- {var_name}: Range = {summary['Range']}, Units = {summary['Units']}, Dimensions = {summary['Dimensions']} {checkmark}",
+                f"- {var_name}: Range = {summary['Range']}, Units = {summary['Units']}, Dimensions = {summary['Dimensions']} {mark}",
                 indent=True,
                 level=2,
             )
+
+            if mark == failmark:
+                output(
+                    f"Invalid model variable name '{var_name}'. Must be one of {prop.valid_variable_list}.",
+                    indent=True,
+                    level=3,
+                )
+
             if "Missing Attributes" in summary:
                 output(
                     f"Missing Attributes: {', '.join(summary['Missing Attributes'])} {failmark}",

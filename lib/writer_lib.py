@@ -651,10 +651,10 @@ def create_var_grid(df, data_variables, coords, grid):
             _iz = coords["z"]["data"].index(_z)
 
             for _var in list(data_variables.keys()):
-                var_grid[_var][_iz][_iy][_ix] = row[data_variables[_var]["column"]]
+                var_grid[_var][_iz][_iy][_ix] = row[data_variables[_var]["variable"]]
         else:
             for _var in list(data_variables.keys()):
-                var_grid[_var][_iy][_ix] = row[data_variables[_var]["column"]]
+                var_grid[_var][_iy][_ix] = row[data_variables[_var]["variable"]]
     return var_grid
 
 
@@ -855,6 +855,7 @@ def read_csv(
 
     # Rename the DataFrame columns and set them to variable name.
     renamed_columns = dict()
+    # For the coordinate variables.
     for column in df.columns:
         for par in params:
             if "column" in params[par]:
@@ -862,11 +863,12 @@ def read_csv(
                     renamed_columns[column] = params[par]["variable"]
                     params[par]["column"] = params[par]["variable"]
 
+    # For model variables
     for column in df.columns:
         for var in params["variables"]:
             if "column" in params["variables"][var]:
                 if column == params["variables"][var]["column"]:
-                    renamed_columns[column] = params["variables"][var]["column"]
+                    renamed_columns[column] = params["variables"][var]["variable"]
                     params["variables"][var]["column"] = params["variables"][var][
                         "variable"
                     ]

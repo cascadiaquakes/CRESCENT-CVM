@@ -171,10 +171,89 @@ def main():
                 data_file,
                 params,
             )
-
             t0, time_txt = lib.time_it(t0)
             logger.info(f"[{time_txt}] data in DataFrame")
+            # See if we have to decimate data.
+            unique_z = None
+            # Create a list of decimation factors)
+            decimation_factors = list()
+            try:
+                x_decimation_factor = 1
+                unique_x = sorted(df[metadata["x"]["column"]].unique())
 
+                if "decimation_factor" in metadata["x"]:
+                    metadata["x"]["decimation_factor"] = int(
+                        metadata["x"]["decimation_factor"]
+                    )
+                    x_decimation_factor = metadata["x"]["decimation_factor"]
+                    if x_decimation_factor > 1:
+                        if "geospatial" in metadata:
+                            metadata["geospatial"][
+                                "geospatial_lon_resolution"
+                            ] *= x_decimation_factor
+                    logger.info(
+                        f"[INFO] X decimation factor {x_decimation_factor} for {len(unique_x)} unique X"
+                    )
+                    unique_x = unique_x[::x_decimation_factor]
+                    logger.info(f"[INFO] {len(unique_x)} unique X ")
+                decimation_factors.append(x_decimation_factor)
+
+                y_decimation_factor = 1
+                unique_y = sorted(df[metadata["y"]["column"]].unique())
+                if "decimation_factor" in metadata["y"]:
+                    metadata["y"]["decimation_factor"] = int(
+                        metadata["y"]["decimation_factor"]
+                    )
+                    y_decimation_factor = metadata["y"]["decimation_factor"]
+                    if y_decimation_factor > 1:
+                        if "geospatial" in metadata:
+                            metadata["geospatial"][
+                                "geospatial_lat_resolution"
+                            ] *= y_decimation_factor
+
+                    logger.info(
+                        f"[INFO] Y decimation factor {y_decimation_factor} for {len(unique_y)} unique Y"
+                    )
+                    unique_y = unique_y[::y_decimation_factor]
+                    logger.info(f"[INFO]{len(unique_y)} unique Y ")
+                decimation_factors.append(y_decimation_factor)
+
+                z_decimation_factor = 1
+                if "z" in metadata:
+                    if "decimation_factor" in metadata["z"]:
+                        metadata["z"]["decimation_factor"] = int(
+                            metadata["z"]["decimation_factor"]
+                        )
+                        z_decimation_factor = metadata["z"]["decimation_factor"]
+
+                    unique_z = sorted(df[metadata["z"]["column"]].unique())
+                    logger.info(
+                        f"[INFO] Z decimation factor {z_decimation_factor} for {len(unique_z)} unique Z"
+                    )
+                    unique_z = unique_z[::z_decimation_factor]
+                    logger.info(f"[INFO] {len(unique_z)} unique Z")
+                    decimation_factors.append(z_decimation_factor)
+                if unique_z:
+                    # Filter the dataframe based on decimated x, y, z values
+                    df = df[
+                        (df[metadata["x"]["column"]].isin(unique_x))
+                        & (df[metadata["y"]["column"]].isin(unique_y))
+                        & (df[metadata["z"]["column"]].isin(unique_z))
+                    ]
+                else:
+                    # Filter the dataframe based on decimated x, y values
+                    df = df[
+                        (df[metadata["x"]["column"]].isin(unique_x))
+                        & (df[metadata["y"]["column"]].isin(unique_y))
+                    ]
+
+            except Exception as ex:
+                logger.error(f"[ERR] Decimation setting failed {ex}")
+                sys.exit(3)
+
+            logger.info(
+                f"[INFO] Decimation factors are:{decimation_factors}; DF size: {df.size}, shape: {df.shape}"
+            )
             coords = meta_lib.get_coords(df, metadata)
             t0, time_txt = lib.time_it(t0)
             logger.info(f"[{time_txt}] Got the coordinates")

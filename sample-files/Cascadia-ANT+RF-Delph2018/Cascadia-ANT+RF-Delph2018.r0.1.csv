@@ -63,16 +63,16 @@
 # northing_long_name: northing; UTM
 # northing_units: m
 # northing_standard_name: projection_y_coordinate
-# vs_column: vs
-# vs_variable: vs
-# vs_dimensions: 3
-# vs_long_name: Shear-wave velocity
-# vs_display_name: S Velocity (km/s)
-# vs_grid_ref: latitude_longitude
-# vs_units: km.s-1
-# vs_data_source: data-derived
-# vs_coordinates: easting northing
-longitude|latitude|depth|easting|northing|vs
+# Vs_column: Vs
+# Vs_variable: Vs (test)
+# Vs_dimensions: 3
+# Vs_long_name: Shear-wave velocity
+# Vs_display_name: S Velocity (km/s)
+# Vs_grid_ref: latitude_longitude
+# Vs_units: km.s-1
+# Vs_data_source: data-derived
+# Vs_coordinates: easting northing
+longitude|latitude|depth|easting|northing|Vs (test)
 -120.2|40.0|-2|739023.9|4431513.0|3.113
 -120.2|40.0|-1|739023.9|4431513.0|3.1429
 -120.2|40.0|0|739023.9|4431513.0|3.2048

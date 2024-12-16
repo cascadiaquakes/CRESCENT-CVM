@@ -417,7 +417,8 @@ def utc_now():
         raise
 
 
-def read_csv(
+# An improved version of this function is in the writer_lib. This should be removed if no error.
+def read_csv_old(
     data_file,
     delimiter,
 ):

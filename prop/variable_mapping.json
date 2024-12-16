@@ -1,0 +1,13 @@
+{
+    "Vs": ["vs"],
+    "Vp": ["vp"], 
+    "Vs (perturbation)": ["dlnVs"], 
+    "Vp (perturbation)": [], 
+    "Density": ["rho"], 
+    "Rayleigh Phase": ["R_PV"], 
+    "Love Phase": [], 
+    "Rayleigh Group": [], 
+    "Love Group": [],
+    "Depth": ["depth"]
+}
+

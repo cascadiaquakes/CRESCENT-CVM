@@ -1,3 +1,4 @@
+pandas
 pyproj
 xarray
 netCDF4

@@ -154,18 +154,18 @@
 #               data_source = assumed to follow vp as vs = vp / 3
 
 > variables 
-    >> vp
+    >> Vp
         column = vp
-        variable = vp
+        variable = Vp
         dimensions = 3
         long_name = P-wave velocity
         display_name = P Velocity (m/s)
         units = m.s-1
         data_source = data-derived
         grid_ref = mercator 
-    >> vs
+    >> Vs
         column = vs
-        variable = vs
+        variable = Vs
         dimensions = 3
         long_name = Shear-wave velocity
         display_name = S Velocity (m/s)

@@ -141,13 +141,22 @@
     standard_name = projection_y_coordinate
 
 
+# NOTE: All models must adhere to the CVM Standards and Conventions
+#       For more information visit: https://cascadiaquakes.github.io/cvm-tools-book/contribution_guidelines.html
+
+# Model Variable Naming and Unit Requirements
+# To ensure consistency and compatibility,
+# the use of model variables conforming to the list of variable names and units as outline in link above is required. 
+# Please adhere to these naming conventions and units when submitting or utilizing CVM tools.
+# If a model variable cannot be selected from this list, an addition or clarification is required.
+
 # variables
-# A compilation of model variables metadata. 
+# A compilation of model variables metadata.
 # Repeat the >> subgroup for as many variables as needed.
-#
+# 
 # Each model variable metadata includes:
 # column: The column heading in the data file:
-# variable: the model variable name. It is recommended to use a CF-compliant standard name. 
+# variable: the model variable name. It is recommended to use a CF-compliant standard name.
 # Please consult the Guidelines for Construction of CF Standard Names
 # (https://cfconventions.org/Data/cf-standard-names/docs/guidelines.html).
 # long_name: Text that describes the variable more fully.
@@ -158,14 +167,14 @@
 #       If the data is derived from an empirical formula, the source attribute should indicate how the variable was derived.
 #
 #       For example:
-#            >> vp
+#            >> Vp
 #               data_source = data-derived
-#            >> vs
-#               data_source = assumed to follow vp as vs = vp / 3
+#            >> Vs
+
 > variables 
-    >> vs
+    >> Vs
         column = vs
-        variable = vs
+        variable = Vs
         dimensions = 3
         long_name = Shear-wave velocity
         display_name = S Velocity (km/s)
