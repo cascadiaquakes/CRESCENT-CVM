@@ -34,6 +34,12 @@ def validate_file(file_path):
     return file_path
 
 
+def get_filename_without_extension(filepath):
+    base_name = os.path.basename(filepath)
+    file_name, _ = os.path.splitext(base_name)
+    return file_name
+
+
 def grd_to_geojson_surface(
     grd_file,
     output_file,
@@ -45,6 +51,8 @@ def grd_to_geojson_surface(
     minify=False,
     decimation_factor=2,
     grid_type="rectangular",
+    title=None,
+    reference=None,
 ):
     """Converts a 2D NetCDF (.nc) or .grd file to a GeoJSON surface."""
 
@@ -102,100 +110,97 @@ def grd_to_geojson_surface(
                 continue
 
             # If z represents depth, convert it to meters and make it negative (depth is positive down)
-            if depth_positive == "up":
-                depth_factor = 1
-            else:
-                depth_factor = -1
+            depth_factor = -1 if depth_positive == "down" else 1
+            conversion_factor = 1000 if depth_unit == "km" else 1
 
-            if depth_unit == "km":
-                z1, z2, z3, z4 = (
-                    depth_factor * z1 * 1000,
-                    depth_factor * z2 * 1000,
-                    depth_factor * z3 * 1000,
-                    depth_factor * z4 * 1000,
-                )
-            else:
-                z1, z2, z3, z4 = (
-                    depth_factor * z1,
-                    depth_factor * z2,
-                    depth_factor * z3,
-                    depth_factor * z4,
-                )
+            z1, z2, z3, z4 = (
+                depth_factor * z1 * conversion_factor,
+                depth_factor * z2 * conversion_factor,
+                depth_factor * z3 * conversion_factor,
+                depth_factor * z4 * conversion_factor,
+            )
 
-            # Create the grid based on the selected grid type
-            if grid_type == "rectangular":
-                # Create a single rectangle polygon for the grid cell
-                rectangle = geojson.Polygon(
+            # Create a single rectangle polygon for the grid cell
+            rectangle = geojson.Polygon(
+                [
                     [
-                        [
-                            (lon1, lat1, z1),
-                            (lon2, lat2, z2),
-                            (lon3, lat3, z3),
-                            (lon4, lat4, z4),
-                            (lon1, lat1, z1),
-                        ]
+                        (lon1, lat1, z1),
+                        (lon2, lat2, z2),
+                        (lon3, lat3, z3),
+                        (lon4, lat4, z4),
+                        (lon1, lat1, z1),
                     ]
+                ]
+            )
+            features.append(
+                geojson.Feature(
+                    geometry=rectangle, properties={"elevation": [z1, z2, z3, z4]}
                 )
-                features.append(
-                    geojson.Feature(
-                        geometry=rectangle, properties={"elevation": [z1, z2, z3, z4]}
-                    )
-                )
-
-            elif grid_type == "triangular":
-                # Create two triangles for each grid cell (split the rectangle into two triangles)
-                triangle1 = geojson.Polygon(
-                    [
-                        [
-                            (lon1, lat1, z1),
-                            (lon2, lat2, z2),
-                            (lon3, lat3, z3),
-                            (lon1, lat1, z1),
-                        ]
-                    ]
-                )
-                triangle2 = geojson.Polygon(
-                    [
-                        [
-                            (lon1, lat1, z1),
-                            (lon3, lat3, z3),
-                            (lon4, lat4, z4),
-                            (lon1, lat1, z1),
-                        ]
-                    ]
-                )
-                # Add the two triangles as separate features
-                features.append(
-                    geojson.Feature(
-                        geometry=triangle1, properties={"elevation": [z1, z2, z3]}
-                    )
-                )
-                features.append(
-                    geojson.Feature(
-                        geometry=triangle2, properties={"elevation": [z1, z3, z4]}
-                    )
-                )
-
-            else:
-                raise ValueError(
-                    "Invalid grid type. Use 'rectangular' or 'triangular'."
-                )
+            )
 
     # Create the FeatureCollection
-    feature_collection = geojson.FeatureCollection(features)
+    feature_collection = geojson.FeatureCollection(
+        features,
+        properties={
+            "title": title,
+            "reference": reference,
+            "decimation_factor": decimation_factor,
+        },
+    )
 
     # Write to the output GeoJSON file
     with open(output_file, "w") as f:
         if minify:
-            # Minify the output by removing whitespace and line breaks
             geojson.dump(feature_collection, f, separators=(",", ":"), cls=NumpyEncoder)
         else:
-            # Pretty print with spaces and line breaks for readability
             geojson.dump(feature_collection, f, indent=2, cls=NumpyEncoder)
 
     print(
         f"GeoJSON surface saved to {output_file} (Minified: {minify}, Grid Type: {grid_type})"
     )
+
+
+def check_and_print_metadata(file_path):
+    """
+    Validates if the file exists and is a valid 2D netCDF/.grd file.
+    Prints metadata information for user reference.
+    """
+    if not os.path.isfile(file_path):
+        raise FileNotFoundError(f"The file '{file_path}' does not exist.")
+
+    try:
+        dataset = nc.Dataset(file_path, "r")
+    except Exception as e:
+        raise ValueError(f"Error opening file '{file_path}': {e}")
+
+    print("\n--- File Metadata ---")
+    print(f"File: {file_path}")
+    print(f"Title: {getattr(dataset, 'title', 'N/A')}")
+    print(f"Conventions: {getattr(dataset, 'Conventions', 'N/A')}")
+    print(f"Dimensions:")
+    for dim_name, dim in dataset.dimensions.items():
+        print(f"  - {dim_name}: {len(dim)}")
+    print(f"Variables:")
+    for var_name, var in dataset.variables.items():
+        dims = ", ".join(var.dimensions)
+        print(f"  - {var_name} (Dimensions: {dims})")
+        print(f"    Attributes:")
+        for attr_name in var.ncattrs():
+            print(f"      {attr_name}: {getattr(var, attr_name)}")
+    print("--------------------\n")
+
+    # Check if it has valid 2D grid-like structure
+    if len(dataset.dimensions) < 2:
+        raise ValueError(
+            "The file does not contain sufficient dimensions for a 2D grid."
+        )
+    if len(dataset.variables) < 3:
+        raise ValueError(
+            "The file does not contain sufficient variables for a 2D grid."
+        )
+
+    print("The file appears to be a valid 2D netCDF/.grd file.")
+    dataset.close()
 
 
 # Prompt the user for input parameters
@@ -205,6 +210,9 @@ input_file = prompt_for_input(
     "Enter the path to the input NetCDF/GRD file", default="input.nc"
 )
 validate_file(input_file)
+
+# Check and print metadata
+check_and_print_metadata(input_file)
 
 output_file = prompt_for_input(
     "Enter the path to save the GeoJSON output", default="output.geojson"
@@ -247,6 +255,12 @@ minify = (
     == "yes"
 )
 
+title = prompt_for_input(
+    "Enter model title", default=get_filename_without_extension(input_file)
+)
+
+reference = prompt_for_input("Enter model reference", default="")
+
 # Call the function with user input
 grd_to_geojson_surface(
     input_file,
@@ -259,4 +273,6 @@ grd_to_geojson_surface(
     minify=minify,
     decimation_factor=decimation_factor,
     grid_type=grid_type,
+    title=title,
+    reference=reference,
 )
