@@ -342,14 +342,24 @@ def main():
 
             data_var = list(ds.data_vars)
             coordinates = list(ds.coords)
-            for var in coordinates:
-                if var not in ds:
-                    logger.error(f"[ERR] Missing data for variable {var}")
-                    sys.exit(3)
-                elif ds[var].data.size < 1:
-                    logger.error(f"[ERR] Missing data for variable {var}")
-                    sys.exit(3)
-                coordinate_values[var] = list(ds[var].data)
+            try:
+                for var in coordinates:
+                    if ds[var].dims == ():
+                        logger.warning(
+                            f"[WARN] Missing data array for variable {var}, skipped"
+                        )
+                        continue
+                    if var not in ds:
+                        logger.error(f"[ERR] Missing data for variable {var}")
+                        sys.exit(3)
+                    elif ds[var].data.size < 1:
+                        logger.error(f"[ERR] Missing data for variable {var}")
+                        sys.exit(3)
+
+                    coordinate_values[var] = list(ds[var].data)
+            except Exception as ex:
+                logger.error(f"[ERR] failed to get data for var:{var}\n{ex}")
+                sys.exit(2)
 
             # Identify main coordinates (x, y, latitude, longitude)
             main_coords_list = ["x", "y", "latitude", "longitude"]
