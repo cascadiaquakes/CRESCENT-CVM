@@ -254,7 +254,8 @@ def main():
             logger.info(
                 f"[INFO] Decimation factors are:{decimation_factors}; DF size: {df.size}, shape: {df.shape}"
             )
-            coords = meta_lib.get_coords(df, metadata)
+            logger.info(f"[{time_txt}] Getting the coordinates")
+            coords = meta_lib.get_coords(df, metadata, verbose=True)
             t0, time_txt = lib.time_it(t0)
             logger.info(f"[{time_txt}] Got the coordinates")
 

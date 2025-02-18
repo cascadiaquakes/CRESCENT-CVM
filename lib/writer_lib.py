@@ -444,17 +444,21 @@ def get_coords(df, metadata, flat="variable", verbose=False):
     # X and Y coordinates.
     coords["x"] = get_var_from_df(df, metadata, "x")
     if verbose:
-        logger.info(f"[INFO] collected X coordinate information: {coords['x']['var']}")
+        logger.info(
+            f"[INFO] collected X coordinate information: {coords['x']['var']} with length: {len(coords['x']['data'])}"
+        )
 
     coords["y"] = get_var_from_df(df, metadata, "y")
     if verbose:
-        logger.info(f"[INFO] collected Y coordinate information: {coords['y']['var']}")
+        logger.info(
+            f"[INFO] collected Y coordinate information: {coords['y']['var']} with length: {len(coords['y']['data'])}"
+        )
     # Is this a 3D model?
     if metadata["z"] is not None:
         coords["z"] = get_var_from_df(df, metadata, "z")
         if verbose:
             logger.info(
-                f"[INFO] collected Z coordinate information: {coords['z']['var']}"
+                f"[INFO] collected Z coordinate information: {coords['z']['var']} with length: {len(coords['z']['data'])}"
             )
 
     # Auxiliary coordinates?
