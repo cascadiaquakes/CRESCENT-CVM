@@ -72,7 +72,9 @@
 
 # The vertical coordinate (could be depth, elevation, etc.:
 # NOTE: Include only if the model is a 3D model.
-#
+#       When using 'depth' as the third dimension, setting it to 'down' is highly recommended because:
+#           - Most oceanographic and geophysical models follow this convention.
+#           - It ensures compatibility with common analysis tools, which typically assume depth increases. 
 # column: The column heading in the data file:
 # variable: the dimension variable name.
 # positive: the positive direction.

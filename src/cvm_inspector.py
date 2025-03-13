@@ -53,6 +53,7 @@ metadata_summary = {}
 # Required attributes based on variable type
 required_attributes = {
     "coordinates": ["long_name", "units", "standard_name"],
+    "auxiliary": ["long_name", "units", "standard_name"],
     "depth": ["long_name", "units", "positive"],
     "model": ["long_name", "units", "display_name"],
 }
@@ -520,27 +521,27 @@ def list_variables(dataset, primary_coords):
                 var_type = "coordinates"
             elif var_name in auxiliary_coordinates:
                 var_type = "auxiliary"
-            elif third_dimension and "depth" in var_name.lower():
+            elif third_dimension == "depth":
                 var_type = "depth"
             else:
                 var_type = "model"
 
             # Check for required attributes
             missing_attributes = []
-            if var_type == "model":
-                required_attributes_model = ["long_name", "units", "display_name"]
-                for attr in required_attributes_model:
-                    if attr not in variable.ncattrs():
-                        missing_attributes.append(attr)
-            else:
-                required_attributes_coordinates = [
-                    "long_name",
-                    "units",
-                    "standard_name",
-                ]
-                for attr in required_attributes_coordinates:
-                    if attr not in variable.ncattrs():
-                        missing_attributes.append(attr)
+            for attr in required_attributes[var_type]:
+                if attr not in variable.ncattrs():
+                    missing_attributes.append(attr)
+
+            # Recommend positive down for depth.
+            if third_dimension == "depth" and "positive" in variable.ncattrs():
+                if variable.positive != "down":
+                    output(
+                        f"Warning: For {third_dimension} the positive direction is set to '{variable.positive}'\n"
+                        f"When using 'depth' as the third dimension, setting it to 'down' is highly recommended because:\n"
+                        f"- Most oceanographic and geophysical models follow this convention.\n"
+                        f"- It ensures compatibility with common analysis tools, which typically assume depth increases. {notemark}",
+                        indent=True,
+                    )
 
             var_min = variable[:].min()
             var_max = variable[:].max()

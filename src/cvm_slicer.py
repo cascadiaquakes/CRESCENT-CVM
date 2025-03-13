@@ -346,15 +346,20 @@ def main():
                 for var in coordinates:
                     if ds[var].dims == ():
                         logger.warning(
-                            f"[WARN] Missing data array for variable {var}, skipped"
+                            f"[WARN] Missing data array for variable {var}: {ds[var]}\nData: {ds[var].data},\nskipped"
                         )
                         continue
                     if var not in ds:
                         logger.error(f"[ERR] Missing data for variable {var}")
                         sys.exit(3)
                     elif ds[var].data.size < 1:
-                        logger.error(f"[ERR] Missing data for variable {var}")
-                        sys.exit(3)
+                        logger.warning(
+                            f"[WARN] Missing data for variable {var}, will not use"
+                        )
+                        # In spacial cases, like information on the axis-rotation, we may have variables with no data.
+                        coordinates.remove(var)
+                        ds = ds.drop_dims(var)
+                        continue
 
                     coordinate_values[var] = list(ds[var].data)
             except Exception as ex:
@@ -889,7 +894,28 @@ def main():
                                         """
                                     pdata = xsection_data.copy()
                                     if zvar == "depth":
-                                        pdata[zvar] = -pdata[zvar]
+                                        positive = ds[zvar].attrs.get(
+                                            "positive", "No positive attribute found"
+                                        )
+
+                                        if positive not in ("down", "up"):
+                                            messages.append(
+                                                f"[WARN] For {zvar} the 'positive' attribute is set to {positive}. It must be set to 'down' or 'up'. We set it here to 'down'"
+                                            )
+                                            z_factor = -1
+                                        elif positive == "down":
+                                            messages.append(
+                                                f"[INFO] For {zvar} the 'positive' attribute is set to {positive}"
+                                            )
+                                            z_factor = -1
+                                        else:
+                                            messages.append(
+                                                f"[INFO] For {zvar} the 'positive' attribute is set to {positive}"
+                                            )
+                                            z_factor = 1
+
+                                        pdata[zvar] = z_factor * pdata[zvar]
+                                        messages = output_messages(messages)
 
                                     if vmin and vmax:
                                         pdata[plot_var].plot.contourf(
@@ -918,10 +944,12 @@ def main():
 
                                     # Set the depth limits for display.
                                     if zvar == "depth":
-                                        z_factor = -1
-                                        plt.ylim(
-                                            z_factor * depth[1], z_factor * depth[0]
-                                        )
+                                        if z_factor < 0:
+                                            plt.ylim(
+                                                z_factor * depth[1], z_factor * depth[0]
+                                            )
+                                        else:
+                                            plt.ylim(input_depth[0], input_depth[1])
                                     else:
                                         z_factor = 1
                                         plt.ylim(input_depth[0], input_depth[1])
