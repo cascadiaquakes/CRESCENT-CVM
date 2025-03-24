@@ -156,7 +156,11 @@
 
 # variables
 # A compilation of model variables metadata. 
-# Repeat the >> subgroup for as many variables as needed.
+# Repeat the >> subgroup for as many variables as needed. 
+# NOTE: The subgroup name should be the same as the variable name:
+#    >> Vs <--------------
+#                         |- Should match
+#        variable = Vs <--
 #
 # Each model variable metadata includes:
 # column: The column heading in the data file:

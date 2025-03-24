@@ -54,7 +54,7 @@ metadata_summary = {}
 required_attributes = {
     "coordinates": ["long_name", "units", "standard_name"],
     "auxiliary": ["long_name", "units", "standard_name"],
-    "depth": ["long_name", "units", "positive"],
+    "depth": ["long_name", "units", "standard_name", "positive"],
     "model": ["long_name", "units", "display_name"],
 }
 
@@ -518,11 +518,12 @@ def list_variables(dataset, primary_coords):
         for var_name, variable in dataset.variables.items():
             var_type = None
             if var_name in dataset.dimensions:
-                var_type = "coordinates"
+                if third_dimension == "depth" and var_name == "depth":
+                    var_type = "depth"
+                else:
+                    var_type = "coordinates"
             elif var_name in auxiliary_coordinates:
                 var_type = "auxiliary"
-            elif third_dimension == "depth":
-                var_type = "depth"
             else:
                 var_type = "model"
 
@@ -530,7 +531,7 @@ def list_variables(dataset, primary_coords):
             missing_attributes = []
             for attr in required_attributes[var_type]:
                 if attr not in variable.ncattrs():
-                    missing_attributes.append(attr)
+                    missing_attributes.append(f"{attr} for {var_name}")
 
             # Recommend positive down for depth.
             if third_dimension == "depth" and "positive" in variable.ncattrs():
