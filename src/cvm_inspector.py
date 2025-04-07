@@ -24,6 +24,14 @@ else:
     failmark = "[X]"
     notemark = "[!]"
 
+# Preferred order of dimensions.
+preferred_dimensions_order = {
+    "latitude": ["latitude", "longitude"],
+    "longitude": ["latitude", "longitude"],
+    "x": ["x", "y"],
+    "y": ["x", "y"],
+}
+
 # List of required global attributes
 required_global_attributes = [
     "title",
@@ -559,9 +567,13 @@ def list_variables(dataset, primary_coords):
             # Determine expected order of dimensions based on coordinates and third dimension
             if var_type == "model" and len(variable.dimensions) == 3:
                 # Ensure the third dimension is not already in primary_coords
-                expected_order = [third_dimension] + [
-                    coord for coord in primary_coords if coord != third_dimension
-                ]
+                for coord in primary_coords:
+                    if coord != third_dimension:
+                        expected_order = preferred_dimensions_order[coord]
+                        break
+
+                expected_order = [third_dimension] + expected_order
+
                 if var_dims != expected_order:
                     output(
                         f"Error: Variable '{var_name}' has incorrect dimension order: {', '.join(var_dims)}. Expected order is '{', '.join(expected_order)}'. {failmark}",
