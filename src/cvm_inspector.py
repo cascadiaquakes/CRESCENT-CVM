@@ -54,7 +54,7 @@ metadata_summary = {}
 required_attributes = {
     "coordinates": ["long_name", "units", "standard_name"],
     "auxiliary": ["long_name", "units", "standard_name"],
-    "depth": ["long_name", "units", "standard_name", "positive"],
+    "depth": ["long_name", "units", "positive"],
     "model": ["long_name", "units", "display_name"],
 }
 
