@@ -3,6 +3,7 @@
 import os
 import sys
 import netCDF4
+import traceback
 
 # Get the root _directory.
 ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -15,14 +16,27 @@ LIB_DIR = os.path.join(ROOT_DIR, prop.LIB_DIR)
 sys.path.append(LIB_DIR)
 import shared_lib as lib
 
+passed_list = ["\t"]
+failed_list = ["\t"]
+warn_list = ["\t"]
+linebreak = "\n"
+linebreak_tab = f"{linebreak}\t"
+
 if lib.supports_unicode():
     checkmark = "✔️".encode("utf-8").decode("utf-8")
-    failmark = "✖️".encode("utf-8").decode("utf-8")
+    failmark = "❌".encode("utf-8").decode("utf-8")
     notemark = "⚠️".encode("utf-8").decode("utf-8")
 else:
     checkmark = "[OK]"
     failmark = "[X]"
     notemark = "[!]"
+
+STANDARDS = (
+    "https://cascadiaquakes.github.io/cvm-tools-book/standards_and_conventions.html"
+)
+VAR_STANDARDS = "https://cascadiaquakes.github.io/cvm-tools-book/standards_and_conventions.html#model-variable-naming-and-unit-requirements"
+GLOBAL_STANDARDS = "https://cascadiaquakes.github.io/cvm-tools-book/usage/global_metadata.html#global-metadata-file-structure"
+VAR_STANDARDS = "https://cascadiaquakes.github.io/cvm-tools-book/usage/variables_metadata.html#variable-s-metadata-file-structure"
 
 # Preferred order of dimensions.
 preferred_dimensions_order = {
@@ -48,6 +62,10 @@ required_global_attributes = [
     "author_institution",
     "reference",
     "reference_pid",
+    "grid_ref",
+    "utm_zone",
+    "ellipsoid",
+    "data_layout",
 ]
 
 # List of optional global attributes
@@ -63,8 +81,15 @@ required_attributes = {
     "coordinates": ["long_name", "units", "standard_name"],
     "auxiliary": ["long_name", "units", "standard_name"],
     "depth": ["long_name", "units", "positive"],
-    "model": ["long_name", "units", "display_name"],
+    "model": [
+        "long_name",
+        "units",
+        "display_name",
+        "data_source",
+    ],
 }
+
+accepted_file_type = ["NetCDF-4", "NetCDF-4 Classic Model"]
 
 
 def check_netcdf_file(file_name):
@@ -77,23 +102,36 @@ def check_netcdf_file(file_name):
         try:
             # Determine the format
             if dataset.file_format == "NETCDF3_CLASSIC":
-                metadata_summary["File Type"] = "NetCDF-3 Classic"
+                message = f"NetCDF-3 Classic {failmark} (see [1])"
+                metadata_summary["File Type"] = message
+                failed_list.append(f"Bad file format: NetCDF-3 Classic (see [1])")
             elif dataset.file_format == "NETCDF3_64BIT":
-                metadata_summary["File Type"] = "NetCDF-3 64-bit offset"
+                message = f"NetCDF-3 64-bit offset {failmark} (see [1])"
+                metadata_summary["File Type"] = message
+                failed_list.append(
+                    f"Bad file format: NetCDF-3  64-bit offset  (see [1])"
+                )
             elif dataset.file_format == "NETCDF4_CLASSIC":
-                metadata_summary["File Type"] = "NetCDF-4 Classic Model"
+                metadata_summary["File Type"] = f"NetCDF-4 Classic Model {checkmark}"
+                passed_list.append(f"File format: NetCDF-4 Classic Model ")
             elif dataset.file_format == "NETCDF4":
-                metadata_summary["File Type"] = "NetCDF-4"
+                metadata_summary["File Type"] = f"NetCDF-4 {checkmark}"
+                passed_list.append(f"File format: NetCDF-4")
             else:
                 metadata_summary["File Type"] = "Unknown"
+                file_type_marker = f"{failmark} (see [1])"
+                output(f"{file_type_marker} file format (see [1])")
+                sys.exit(1)
+
         except Exception as e:
             output(f"Error determining file format: {e} {failmark}")
             metadata_summary["File Type"] = (
                 f"Error determining file format: {e} {failmark}"
             )
+            sys.exit(1)
 
         output(
-            f"\n=== NetCDF File Check ===\nFile: {file_name}\nSize: {file_size / (1024 ** 2):.2f} MB\nFile Type: {metadata_summary['File Type']}"
+            f"\n\nNOTE:  Checks based on Standards and Conventions (see [1])\n\n=== NetCDF File Check ===\nFile: {file_name}\nSize: {file_size / (1024 ** 2):.2f} MB\nFile Type: {metadata_summary['File Type']}"
         )
 
         try:
@@ -130,7 +168,7 @@ def check_netcdf_file(file_name):
         except Exception as e:
             output(f"Error during processing: {e} {failmark}")
             metadata_summary["Processing Error"] = (
-                f"Error during processing: {e} {failmark}"
+                f"Error during processing: {e} {failmark}\nTraceback:{traceback.print_exec()}"
             )
 
         dataset.close()
@@ -146,7 +184,14 @@ def check_netcdf_file(file_name):
         output_header(
             "Metadata Inspection Summary"
         )  # Changed to 'Metadata Inspection Summary'
-        print_metadata_summary()
+        # print_metadata_summary()
+        output(
+            f"{checkmark} Passed list:\n{linebreak_tab.join(passed_list)}"
+            f"\n\n{failmark} Failed list:\n{linebreak_tab.join(failed_list)}"
+            f"\n\n{notemark}  Warning list:\n{linebreak_tab.join(warn_list)}"
+        )
+        output(f"\n\n\n")
+
     except Exception as e:
         output(f"Error while printing metadata summary: {e} {failmark}")
 
@@ -156,7 +201,9 @@ def list_dimensions(dataset):
         dimensions = {dim: len(dataset.dimensions[dim]) for dim in dataset.dimensions}
         metadata_summary["Dimensions"] = dimensions
         for dim, size in dimensions.items():
-            output(f"- {dim}: {size} {checkmark}", indent=True)
+            message = f"{dim}: {size}"
+            output(f"- {message} {checkmark}", indent=True)
+            passed_list.append(message)
     except Exception as e:
         output(f"Error listing dimensions: {e} {failmark}")
         metadata_summary["Dimensions"] = f"Error listing dimensions: {e} {failmark}"
@@ -192,27 +239,34 @@ def list_coordinates(dataset):
         )
 
         if primary_coords:
+            message = f"Primary Coordinates: {', '.join(primary_coords)}"
             output(
-                f"Primary Coordinates: {', '.join(primary_coords)} {checkmark}",
+                f"{message} {checkmark}",
                 indent=True,
             )
+            passed_list.append(message)
             if third_dimension:
-                output(f"Third Dimension: {third_dimension} {checkmark}", indent=True)
+                message = f"Third Dimension: {third_dimension}"
+                output(message, indent=True)
+                passed_list.append(message)
         else:
-            output(f"No primary coordinates found. {failmark}", indent=True)
-            metadata_summary["Primary Coordinates"] = (
-                f"No primary coordinates found {failmark}"
-            )
+            message = f"No primary coordinates found."
+            output(f"{message} {failmark}", indent=True)
+            metadata_summary["Primary Coordinates"] = message
+            failed_list.append(message)
 
         if auxiliary_coords:
+            message = f"Auxiliary Coordinates: {', '.join(auxiliary_coords)}"
             output(
-                f"Auxiliary Coordinates: {', '.join(auxiliary_coords)} {checkmark}",
+                f"{message} {checkmark}",
                 indent=True,
             )
+            passed_list.append(message)
         else:
             output(
                 f"No auxiliary coordinates found. {notemark} (Optional)", indent=True
             )
+            warn_list.append(f"No optional auxiliary coordinates found.")
 
         # Return both primary and auxiliary coordinates
         return primary_coords, auxiliary_coords
@@ -250,52 +304,59 @@ def check_lat_lon_values(dataset, primary_coords, auxiliary_coords):
                 lon_format = "Unknown"
 
             metadata_summary["Longitude Format"] = lon_format
-            output(f"Longitude Format: {lon_format} {checkmark}", indent=True)
+            message = f"Longitude Format: {lon_format}"
+            output(f"{message} {checkmark}", indent=True)
+            passed_list.append(message)
 
             # Check that latitudes and longitudes are within valid ranges
             lat_min, lat_max = lat_values.min(), lat_values.max()
             lon_min, lon_max = lon_values.min(), lon_values.max()
 
             if lat_min < -90 or lat_max > 90:
+                message = f"Latitude values are out of range: {lat_min:.3f} to {lat_max:.3f} {failmark}"
                 output(
-                    f"Latitude values are out of range: {lat_min:.3f} to {lat_max:.3f} {failmark}",
+                    message,
                     indent=True,
                 )
-                metadata_summary["Latitude Range"] = (
-                    f"Latitude values out of range: {lat_min:.3f} to {lat_max:.3f} {failmark}"
-                )
+                metadata_summary["Latitude Range"] = message
+                failed_list.append(message)
             else:
+                message = f"Latitude Range: {lat_min:.3f} to {lat_max:.3f}"
                 output(
-                    f"Latitude Range: {lat_min:.3f} to {lat_max:.3f} {checkmark}",
+                    f"{message}  {checkmark}",
                     indent=True,
                 )
+                passed_list.append(message)
                 metadata_summary["Latitude Range"] = f"{lat_min:.3f} to {lat_max:.3f}"
 
             if lon_format == "0-360 degrees" and (lon_min < 0 or lon_max > 360):
+                message = f"Longitude values are out of range: {lon_min:.3f} to {lon_max:.3f} {failmark}"
                 output(
-                    f"Longitude values are out of range: {lon_min:.3f} to {lon_max:.3f} {failmark}",
+                    message,
                     indent=True,
                 )
-                metadata_summary["Longitude Range"] = (
-                    f"Longitude values out of range: {lon_min:.3f} to {lon_max:.3f} {failmark}"
-                )
+                metadata_summary["Longitude Range"] = message
+                failed_list.append(message)
             elif lon_format == "-180/180 degrees" and (lon_min < -180 or lon_max > 180):
+                message = f"Longitude values are out of range: {lon_min:.3f} to {lon_max:.3f} {failmark}"
                 output(
-                    f"Longitude values are out of range: {lon_min:.3f} to {lon_max:.3f} {failmark}",
+                    message,
                     indent=True,
                 )
-                metadata_summary["Longitude Range"] = (
-                    f"Longitude values out of range: {lon_min:.3f} to {lon_max:.3f} {failmark}"
-                )
+                metadata_summary["Longitude Range"] = message
+                failed_list.append(message)
             elif lon_format == "Potentially 0-360 degrees or -180/180 degrees":
+                message = f"Longitude Range: {lon_min:.3f} to {lon_max:.3f} {checkmark}"
                 output(
-                    f"Longitude Range: {lon_min:.3f} to {lon_max:.3f} {checkmark}",
+                    message,
                     indent=True,
                 )
+                passed_list.append(message)
                 metadata_summary["Longitude Range"] = f"{lon_min:.3f} to {lon_max:.3f}"
             else:
+                message = f"Longitude Range: {lon_min:.3f} to {lon_max:.3f} {checkmark}"
                 output(
-                    f"Longitude Range: {lon_min:.3f} to {lon_max:.3f} {checkmark}",
+                    message,
                     indent=True,
                 )
                 metadata_summary["Longitude Range"] = f"{lon_min:.3f} to {lon_max:.3f}"
@@ -303,17 +364,17 @@ def check_lat_lon_values(dataset, primary_coords, auxiliary_coords):
             return lat_min, lat_max, lon_min, lon_max  # Return computed values
 
         else:
-            output(f"Latitude and/or Longitude not found. {failmark}", indent=True)
-            metadata_summary["Coordinates"] = (
-                f"Latitude and/or Longitude not found {failmark}"
-            )
+            message = f"Latitude and/or Longitude not found. {failmark}"
+            output(message, indent=True)
+            metadata_summary["Coordinates"] = message
+            failed_list.append(message)
             return None, None, None, None
 
     except Exception as e:
-        output(f"Error checking latitude and longitude values: {e} {failmark}")
-        metadata_summary["Coordinates"] = (
-            f"Error checking latitude and longitude values: {e} {failmark}"
-        )
+        message = f"Error checking latitude and longitude values: {e} {failmark}"
+        output(message)
+        metadata_summary["Coordinates"] = message
+        failed_list.append(message)
         return None, None, None, None
 
 
@@ -337,20 +398,30 @@ def check_geospatial_attributes(dataset, lat_min, lat_max, lon_min, lon_max):
                 if (
                     "vertical" in attr and "depth" in dataset.dimensions
                 ):  # Check if depth is present
+                    message = (
+                        f"Error: {attr} is missing but depth dimension is present."
+                    )
                     output(
-                        f"Error: {attr} is missing but depth dimension is present. {failmark}",
+                        f"{message} {failmark}",
                         indent=True,
                     )
+                    failed_list.append(message)
                 elif "vertical" in attr:
+                    message = f"Warning: {attr} is missing (model does not have a depth dimension). "
                     output(
-                        f"Warning: {attr} is missing (model does not have a depth dimension). {notemark}",
+                        f"{message} {notemark}",
                         indent=True,
+                    )
+                    warn_list.append(
+                        f"{attr} is missing (model does not have a depth dimension)"
                     )
                 else:
+                    message = f"Error: Required attribute {attr} is missing."
                     output(
-                        f"Error: Required attribute {attr} is missing. {failmark}",
+                        f"{message} {failmark}",
                         indent=True,
                     )
+                    failed_list.append(message)
             return  # Skip further checks if required attributes are missing
 
         # Check if depth is a dimension and handle accordingly
@@ -384,36 +455,49 @@ def check_geospatial_attributes(dataset, lat_min, lat_max, lon_min, lon_max):
                     output(
                         f"{key}: {value} (No depth dimension) {notemark}", indent=True
                     )
+                    warn_list.append(f"{key}: {value} (No depth dimension)")
                 elif is_within_tolerance(metadata_value, value):
+                    message = (
+                        f"{key}: Metadata = {metadata_value}, Computed = {value:.3f}"
+                    )
                     output(
-                        f"{key}: Metadata = {metadata_value}, Computed = {value:.3f} {checkmark}",
+                        f"{message}  {checkmark}",
                         indent=True,
                     )
+                    passed_list.append(message)
                 else:
+                    message = (
+                        f"{key}: Metadata = {metadata_value}, Computed = {value:.3f}"
+                    )
                     output(
-                        f"{key}: Metadata = {metadata_value}, Computed = {value:.3f} {failmark}",
+                        f"{message} {failmark}",
                         indent=True,
+                    )
+                    failed_list.append(
+                        f"{key}: Metadata = {metadata_value}, Computed = {value:.3f} {failmark}"
                     )
                     output(
                         f"Error: {key} mismatch. Metadata = {metadata_value}, Computed = {value:.3f}",
                         indent=True,
                         level=2,
                     )
-                    metadata_summary[key] = (
-                        f"Metadata = {metadata_value}, Computed = {value:.3f} {failmark}"
-                    )
+                    message = f"Metadata = {metadata_value}, Computed = {value:.3f} {failmark}"
+                    metadata_summary[key] = message
             else:
                 output(
                     f"{key} is not found in metadata. {notemark} (Optional)",
                     indent=True,
                 )
+                warn_list.append(f"Optional {key} is not found in metadata.")
                 if value is not None and value != "Not applicable":
-                    output(f"Computed {key}: {value:.3f} {checkmark}", indent=True)
+                    message = f"Computed {key}: {value:.3f} {checkmark}"
+                    output(message, indent=True)
+                    passed_list.append(message)
     except Exception as e:
-        output(f"Error checking geospatial attributes: {e} {failmark}")
-        metadata_summary["Geospatial Attributes"] = (
-            f"Error checking geospatial attributes: {e} {failmark}"
-        )
+        message = f"Error checking geospatial attributes: {e} {failmark}"
+        output(message)
+        metadata_summary["Geospatial Attributes"] = message
+        failed_list.append(message)
 
 
 def is_within_tolerance(metadata_value, computed_value, tolerance=0.1):
@@ -440,31 +524,41 @@ def check_global_attributes(dataset):
                 missing_optional_attributes.append(attribute)
 
         if missing_required_attributes:
-            output(f"Missing Required Global Attributes: {failmark}", indent=True)
+            message = f"Missing Required Global Attributes: {failmark} (see [1] & [3])"
+            output(
+                message,
+                indent=True,
+            )
             for attr in missing_required_attributes:
-                output(f"- {attr}", indent=True, level=2)
+                message = f"- {attr}"
+                output(message, indent=True, level=2)
+                failed_list.append(
+                    f"Missing Required Global Attribute: {attr} (see [1] & [3])"
+                )
             metadata_summary["Missing Required Global Attributes"] = (
                 missing_required_attributes
             )
         else:
-            output(
-                f"All required global attributes are present. {checkmark}", indent=True
-            )
+            message = f"All required global attributes are present."
+            output(f"{message}  {checkmark}", indent=True)
+            passed_list.append(message)
 
         if missing_optional_attributes:
             output(
-                f"Missing Optional Global Attributes (optional): {notemark}",
+                f"Missing Global Attributes (optional): {notemark}",
                 indent=True,
             )
+
             for attr in missing_optional_attributes:
+                warn_list.append(f"Missing Optional Global Attribute: {attr}")
                 output(f"- {attr}", indent=True, level=2)
             metadata_summary["Missing Optional Global Attributes"] = (
                 missing_optional_attributes
             )
         else:
-            output(
-                f"All optional global attributes are present. {checkmark}", indent=True
-            )
+            message = f"All optional global attributes are present."
+            output(f"message {checkmark}", indent=True)
+            passed_list.append(message)
     except Exception as e:
         output(f"Error checking global attributes: {e} {failmark}")
         metadata_summary["Global Attributes"] = (
@@ -493,14 +587,19 @@ def check_cf_compliance(file_name):
 
         # Determine the compliance result based on the parsed information
         if errors_detected == 0 and warnings_given == 0:
-            output(f"CF Compliance: Compliant {checkmark}", indent=True)
+            message = f"CF Compliance: Compliant"
+            output(f"{message} {checkmark}", indent=True)
             metadata_summary["CF Compliance"] = "Compliant"
+            passed_list.append(message)
         elif errors_detected == 0 and warnings_given > 0:
             output(f"CF Compliance: with warning {notemark}", indent=True)
             output(f"Warnings: {warnings_given} {notemark}", indent=True, level=2)
             metadata_summary[f"CF Compliance"] = "with warning {notemark}"
+            warn_list.append("CF Compliance")
         elif errors_detected > 0:
-            output(f"CF Compliance: Non-compliant {failmark}", indent=True)
+            message = f"CF Compliance: Non-compliant"
+            output(f"{message} {failmark}", indent=True)
+            failed_list.append(message)
             output(f"Issues:\n{result}", indent=True, level=2)
             metadata_summary["CF Compliance"] = f"Non-compliant {failmark}"
     except Exception as e:
@@ -551,7 +650,9 @@ def list_variables(dataset, primary_coords):
                         f"- It ensures compatibility with common analysis tools, which typically assume depth increases. {notemark}",
                         indent=True,
                     )
-
+                warn_list.append(
+                    f"For {third_dimension} the positive direction is set to '{variable.positive}'"
+                )
             var_min = variable[:].min()
             var_max = variable[:].max()
             var_units = variable.units if "units" in variable.ncattrs() else "No units"
@@ -583,10 +684,12 @@ def list_variables(dataset, primary_coords):
                         f"Incorrect dimension order: {', '.join(var_dims)} {failmark}"
                     )
                 else:
+                    message = f"Variable '{var_name}' has correct dimension order: {', '.join(var_dims)}."
                     output(
-                        f"Variable '{var_name}' has correct dimension order: {', '.join(var_dims)}. {checkmark}",
+                        f"{message} {checkmark}",
                         indent=True,
                     )
+                    passed_list.append(message)
 
             # Classify variable
             if var_type == "coordinates" or (var_type == "depth" and third_dimension):
@@ -600,11 +703,13 @@ def list_variables(dataset, primary_coords):
 
         output("\nCoordinate Variables:", indent=True)
         for var_name, summary in coordinate_variables.items():
+            message = f"{var_name}: Range = {summary['Range']}, Units = {summary['Units']}, Dimensions = {summary['Dimensions']}"
             output(
-                f"- {var_name}: Range = {summary['Range']}, Units = {summary['Units']}, Dimensions = {summary['Dimensions']} {checkmark}",
+                f"- {message} {checkmark}",
                 indent=True,
                 level=2,
             )
+            passed_list.append(message)
             if "Missing Attributes" in summary:
                 output(
                     f"Missing Attributes: {', '.join(summary['Missing Attributes'])} {failmark}",
@@ -617,25 +722,33 @@ def list_variables(dataset, primary_coords):
             mark = checkmark
             if var_name not in prop.valid_variable_list:
                 mark = failmark
-
+            message = f"{var_name}: Range = {summary['Range']}, Units = {summary['Units']}, Dimensions = {summary['Dimensions']}"
             output(
-                f"- {var_name}: Range = {summary['Range']}, Units = {summary['Units']}, Dimensions = {summary['Dimensions']} {mark}",
+                f"- {message} {mark}",
                 indent=True,
                 level=2,
             )
+            if mark == checkmark:
+                passed_list.append(message)
 
             if mark == failmark:
+                message = f"Invalid model variable name: '{var_name}' (see [2] & [4])"
                 output(
-                    f"Invalid model variable name '{var_name}'. Must be one of {prop.valid_variable_list}.",
+                    message,
                     indent=True,
                     level=3,
                 )
+                failed_list.append(message)
 
             if "Missing Attributes" in summary:
+                message = f"Missing Attributes: {', '.join(summary['Missing Attributes'])} {failmark}"
                 output(
-                    f"Missing Attributes: {', '.join(summary['Missing Attributes'])} {failmark}",
+                    message,
                     indent=True,
                     level=3,
+                )
+                failed_list.append(
+                    f"Missing Attributes: {', '.join(summary['Missing Attributes'])} (see [2] & [4])"
                 )
 
         metadata_summary["Coordinate Variables"] = coordinate_variables
@@ -643,6 +756,14 @@ def list_variables(dataset, primary_coords):
     except Exception as e:
         output(f"Error listing variables: {e} {failmark}")
         metadata_summary["Variables"] = f"Error listing variables: {e} {failmark}"
+
+    output(
+        f"\n\nNOTES:\n    [1] Standards and Conventions see: {STANDARDS}\n    "
+        f"[2] Model Variable Naming and Unit Requirements see: {VAR_STANDARDS}\n    "
+        f"[3] Global Metadata File Structure see : {GLOBAL_STANDARDS}\n    "
+        f"[4] Variable’s Metadata File Structure see : {VAR_STANDARDS}\n    "
+        f"\n\n"
+    )
 
 
 def print_metadata_summary():
