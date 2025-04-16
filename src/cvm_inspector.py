@@ -650,9 +650,9 @@ def list_variables(dataset, primary_coords):
                         f"- It ensures compatibility with common analysis tools, which typically assume depth increases. {notemark}",
                         indent=True,
                     )
-                warn_list.append(
-                    f"For {third_dimension} the positive direction is set to '{variable.positive}'"
-                )
+                    warn_list.append(
+                        f"For {third_dimension} the positive direction is set to '{variable.positive}'"
+                    )
             var_min = variable[:].min()
             var_max = variable[:].max()
             var_units = variable.units if "units" in variable.ncattrs() else "No units"
