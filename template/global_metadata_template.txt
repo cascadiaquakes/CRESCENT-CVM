@@ -139,7 +139,7 @@
 # Currently supporting:
 # latitude_longitude -- Defines the canonical 2D geographical coordinate
 #        system based upon latitude and longitude coordinates.
-# mercator -- Mercator
+# transverse_mercator -- Transverse Mercator
 
 - grid_ref = latitude_longitude
 

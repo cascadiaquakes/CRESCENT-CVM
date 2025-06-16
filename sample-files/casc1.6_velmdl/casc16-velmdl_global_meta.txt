@@ -134,9 +134,9 @@
 # Currently supporting:
 # latitude_longitude -- Defines the canonical 2D geographical coordinate
 #        system based upon latitude and longitude coordinates.
-# mercator -- Mercator
+# mercator -- transverse_mercator
 
-- grid_ref = marcator
+- grid_ref = transverse_mercator
 
 
 # The Universal Transverse Mercator zone:

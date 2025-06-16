@@ -169,7 +169,7 @@
 # (https://cfconventions.org/Data/cf-standard-names/docs/guidelines.html).
 # long_name: Text that describes the variable more fully.
 # display_name: Text to use for variable display. 
-# grid_ref: Text A recognized grid coordinate system (Currently supporting, latitude_longitude and mercator)
+# grid_ref: Text A recognized grid coordinate system (Currently supporting, latitude_longitude and transverse_mercator)
 # data_source:  describes the origin of the data for this variable:
 #       If the data is derived from observations, the source attribute should be set to “data-derived.”
 #       If the data is derived from an empirical formula, the source attribute should indicate how the variable was derived.
