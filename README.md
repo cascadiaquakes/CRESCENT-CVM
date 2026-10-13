@@ -1,10 +1,18 @@
 # Cascadia Community Velocity Model Tools (CVM Tools)
 
+[![License: BSD-3-Clause](https://img.shields.io/badge/License-BSD_3--Clause-blue.svg)](LICENSE)
+
+Python 3 tools for storing, extracting and visualizing the Cascadia Community Velocity Models ([CVM](https://cascadiaquakes.org/cvm/)).
+
 **Last updated:** 2025-03-13 **Release:** r0.9.7
 
-This repository contains Python 3 tools developed to support the [Cascadia Community Velocity Models (CVM)](https://cascadiaquakes.org/cvm/) project. These tools are designed to facilitate the storage, extraction, and visualization of CVMs.
+**Documentation:** https://cascadiaquakes.github.io/cvm-tools-book/
 
-## Special Notes
+**Viewer:** https://cvm.cascadiaquakes.org
+
+---
+
+## Release Notes
 
 - **Release r0.9.7:** Enhanced support for depth-positive convention (Issue #10).
 - **Release r0.9.6:** Now using a standard variable naming convention and cvm_writer can decimate data.
@@ -14,13 +22,11 @@ This repository contains Python 3 tools developed to support the [Cascadia Commu
 - **Release r0.8:** Metadata template files have changed from Python data files to text files. The **cvm_write** tool no longer supports Python metadata files.
 - **Release r0.8:** Metadata templates have been split into **global** and **variable** files to support both netCDF and HDF5 formats.
 
-### Download
+---
 
-Clone the repository or download and unzip the files.
+## Installation
 
-### Installation
-
-Ensure you have the following:
+Clone the repository or download and unzip the files, then make sure you have:
 
 - [Python](https://www.python.org/) 3
 - Required Python modules (listed in `requirements.txt`):
@@ -31,10 +37,35 @@ Ensure you have the following:
 
 Tested under Python 3.12.0 on macOS 14.2.1. Compatibility with older versions of Python 3 may vary.
 
-## Documentation
+---
 
-For detailed documentation and tutorials, visit: [CVM-Tools Documentation](https://cascadiaquakes.github.io/cvm-tools-book/).
+## License
 
-### Feedback or Issues
+This project is licensed under the BSD 3-Clause License. See [LICENSE](LICENSE).
 
-If you have any comments, questions, or bug reports, please open an issue ticket or contact [manochehr.bahavar@earthscope.org](mailto:manochehr.bahavar@earthscope.org).
+---
+
+## Contacts
+
+- **Manochehr Bahavar** (original author), EarthScope: [manochehr.bahavar@earthscope.org](mailto:manochehr.bahavar@earthscope.org)
+- **Amanda M. Thomas**, University of California, Davis: [amthom@ucdavis.edu](mailto:amthom@ucdavis.edu)
+- **William Marfo**, University of California, Davis: [wmarfo@ucdavis.edu](mailto:wmarfo@ucdavis.edu)
+
+For bugs or questions, please [open an issue](https://github.com/cascadiaquakes/CRESCENT-CVM/issues).
+
+---
+
+## Acknowledgments
+
+<table>
+  <tr>
+    <td align="center" valign="middle">
+      <img src="https://raw.githubusercontent.com/cascadiaquakes/.github/main/assets/crescent-circle.png" alt="CRESCENT Logo" width="150" />
+    </td>
+    <td align="center" valign="middle">
+      <img src="https://raw.githubusercontent.com/cascadiaquakes/.github/main/assets/nsf-logo.png" alt="NSF Logo" width="450" />
+    </td>
+  </tr>
+</table>
+
+This project is supported by the National Science Foundation through the Cascadia Region Earthquake Science Center (CRESCENT), Cooperative Agreement EAR-2225286.
